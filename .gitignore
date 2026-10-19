@@ -7,3 +7,4 @@ trivia-night.backup.html
 node_modules/
 .DS_Store
 Thumbs.db
+*.tmp

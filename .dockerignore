@@ -1,0 +1,7 @@
+node_modules
+.git
+trivia-state.json
+*.tmp
+trivia-night.backup.html
+test
+docs

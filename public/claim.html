@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Trivvoly: Quizmaster</title>
+<style>
+html,body{margin:0;min-height:100%;background:#1E0617;color:#FFF6E0;font:18px/1.5 'Segoe UI',system-ui,-apple-system,sans-serif}
+main{max-width:520px;margin:18vh auto 0;padding:0 20px;text-align:center}
+h1{font:400 28px 'Arial Black',Impact,sans-serif;color:#FFE9A8;margin:0 0 12px}
+a{color:#F5B83D}
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Opening the quizmaster screen…</h1>
+  <p id="msg"></p>
+</main>
+<script>
+// The quizmaster's secret travels in the link's #fragment, which browsers never send to the server.
+// Trade it for a cookie scoped to this room, then reload without the secret in the address bar.
+(async function () {
+  const key = new URLSearchParams(location.hash.slice(1)).get('k');
+  const say = (t, m) => { document.getElementById('title').textContent = t; document.getElementById('msg').textContent = m; };
+  if (!key) return say('This screen is for the quizmaster', 'Open the quizmaster link you got when the game was created. If you’re playing, use the room code instead.');
+  try {
+    const r = await fetch(location.pathname.replace(/\/(host|remote)\/?$/, '/claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return say('That link didn’t work', j.error || 'Please check the quizmaster link and try again.');
+    history.replaceState(null, '', location.pathname);
+    location.reload();
+  } catch (e) { say('Can’t reach Trivvoly', 'Check your connection and try again.'); }
+})();
+</script>
+</body>
+</html>

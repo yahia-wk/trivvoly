@@ -125,12 +125,16 @@ p{margin:0 0 8px;line-height:1.4}
 </nav>
 <div class="msg" id="msg" role="status" hidden></div>
 
+<script src="/shared/flags.js"></script>
 <script>
 (function () {
 'use strict';
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const key = new URLSearchParams(location.search).get('key');
+// Lives at /r/<ROOM CODE>/remote; the quizmaster's cookie for this room authorises every call
+const BASE = (location.pathname.match(/^\/r\/[A-Z0-9]{6}/) || [''])[0];
+const FLAGS = window.TRIVVOLY_FLAGS || {};
+if (location.hash) history.replaceState(null, '', location.pathname); // the secret is now a cookie; drop it from the address bar
 let R = null, tvOnline = false, received = 0, tab = 'live';
 try { tab = sessionStorage.getItem('remote-tab') || 'live'; } catch (e) { /* storage off */ }
 const main = $('#main');
@@ -139,13 +143,14 @@ let msgT;
 function say(t) { const m = $('#msg'); m.textContent = t; m.hidden = false; clearTimeout(msgT); msgT = setTimeout(() => { m.hidden = true; }, 3000); }
 async function cmd(c, a = {}) {
   try {
-    const r = await fetch('/api/host/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, cmd: c, a }) });
+    const r = await fetch(BASE + '/host/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: c, a }) });
     if (!r.ok) say((await r.json().catch(() => ({}))).error || 'That didn’t work.');
   } catch (e) { say('Can’t reach the server.'); }
 }
 
 /* ---------- Connection ---------- */
-const es = new EventSource('/events?role=remote&key=' + encodeURIComponent(key || ''));
+const es = new EventSource(BASE + '/events?role=remote');
+es.addEventListener('closed', () => { es.close(); main.innerHTML = '<div class="card plain"><p>This game has ended. <a href="/" style="color:var(--gold)">Start a new one</a>.</p></div>'; });
 es.addEventListener('tv', e => { tvOnline = JSON.parse(e.data).online; paintConn(); });
 es.addEventListener('remote', e => { R = JSON.parse(e.data); received = performance.now(); render(); });
 es.onopen = () => paintConn();
@@ -171,7 +176,8 @@ $('#next').addEventListener('click', () => cmd('next'));
 /* ---------- Rendering ---------- */
 function questionHTML(q) {
   let h = '';
-  if (q.flag) h += `<svg class="flag" viewBox="0 0 ${q.flag.w} ${q.flag.h}" width="200" height="${Math.round(200 * q.flag.h / q.flag.w)}" role="img" aria-label="Flag">${q.flag.svg}</svg>`;
+  const f = q.flag && Object.prototype.hasOwnProperty.call(FLAGS, q.flag) ? FLAGS[q.flag] : null;
+  if (f) h += `<svg class="flag" viewBox="0 0 ${f.w} ${f.h}" width="200" height="${Math.round(200 * f.h / f.w)}" role="img" aria-label="Flag">${f.svg}</svg>`;
   if (q.cat) h += `<p class="muted">Category: ${esc(q.cat)}</p><div class="clue">${esc(q.clue)}</div>`;
   if (q.emoji) h += `<div class="big-emoji">${esc(q.emoji)}</div>`;
   if (q.input === 'ab') h += `<p class="qtext">A: ${esc(q.A.text)}<br>B: ${esc(q.B.text)}</p>`;
@@ -308,8 +314,7 @@ main.addEventListener('change', e => {
   else if (el.dataset.teamField) cmd('team', { id: el.dataset.id, field: el.dataset.teamField, value: el.value });
 });
 
-if (!key) main.innerHTML = '<div class="card plain"><p>This page needs the host key. Use the remote link printed by the server, or the QR code under Menu on the main screen.</p></div>';
-else render();
+render();
 })();
 </script>
 </body>

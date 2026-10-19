@@ -1,153 +1,63 @@
-// Trivvoly live server. No dependencies: run `node server.js`.
-// Host screen: the "Host" URL printed at startup. Players: http://<this-pc-ip>:3000 on their phones.
+// Trivvoly server: many games at once, each in its own room. Run `npm start` (or node server.js).
+// Open http://localhost:3000 to host a quiz; players join with the room code or QR code.
 'use strict';
-const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
+const http = require('http'), path = require('path'), os = require('os');
+const H = require('./lib/http.js');
+const { loadLibrary, check, summary, MAX_QUIZ_BYTES } = require('./lib/quizzes.js');
+const { createRooms, CODE } = require('./lib/rooms.js');
 
 const PORT = +process.env.PORT || 3000;
+const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/+$/, ''); // e.g. https://trivvoly.com when hosted
 const STATE_FILE = process.env.TRIVVOLY_STATE || path.join(__dirname, 'trivia-state.json');
-const PUBLIC = path.join(__dirname, 'public');
-const HOST_FILE = path.join(PUBLIC, 'show.html');
-const PLAYER_FILE = path.join(PUBLIC, 'play.html');
-const REMOTE_FILE = path.join(PUBLIC, 'remote.html');
-const SHARED = { '/shared/flags.js': path.join(__dirname, 'shared', 'flags.js'), '/shared/quiz-format.js': path.join(__dirname, 'shared', 'quiz-format.js') };
-const MAX_TEAMS = 40;
-const MAX_QUIZ_BYTES = 500 * 1024;
+const ROOT = __dirname, PUB = path.join(ROOT, 'public');
+const FILES = {
+  index: path.join(PUB, 'index.html'), play: path.join(PUB, 'play.html'), show: path.join(PUB, 'show.html'),
+  remote: path.join(PUB, 'remote.html'), claim: path.join(PUB, 'claim.html')
+};
+const SCRIPTS = {
+  '/shared/flags.js': path.join(ROOT, 'shared', 'flags.js'),
+  '/shared/quiz-format.js': path.join(ROOT, 'shared', 'quiz-format.js'),
+  '/vendor/qrcode.js': path.join(ROOT, 'node_modules', 'qrcode-generator', 'qrcode.js')
+};
+const MIN = 60 * 1000, HOUR = 60 * MIN;
+const COOKIE_AGE = 12 * 60 * 60; // seconds; rooms never live longer than this
 
-/* ---------- The quiz: a validated data file (node server.js --quiz path/to/quiz.json) ---------- */
-const { validateQuiz } = require('./shared/quiz-format.js');
-const FLAGS = require('./shared/flags.js');
 function argValue(name) {
   const i = process.argv.findIndex(a => a === name || a.startsWith(name + '='));
   if (i < 0) return null;
   const a = process.argv[i];
   return a.includes('=') ? a.slice(a.indexOf('=') + 1) : process.argv[i + 1] || null;
 }
-function loadQuiz(file) {
-  let text;
-  try {
-    if (fs.statSync(file).size > MAX_QUIZ_BYTES) throw new Error(`it is bigger than ${MAX_QUIZ_BYTES / 1024} KB`);
-    text = fs.readFileSync(file, 'utf8');
-  } catch (e) { return { errors: [`Can't read ${file}: ${e.message}`] }; }
-  let data;
-  try { data = JSON.parse(text.replace(/^\uFEFF/, '')); } catch (e) { return { errors: [`${file} isn't valid JSON: ${e.message}`] }; }
-  const r = validateQuiz(data, { flags: FLAGS });
-  return r.ok ? { quiz: r.quiz } : { errors: r.errors.map(e => `${path.basename(file)}: ${e}`) };
-}
-const QUIZ_FILE = path.resolve(argValue('--quiz') || path.join(__dirname, 'quizzes', 'classic.json'));
-const loaded = loadQuiz(QUIZ_FILE);
-if (loaded.errors) {
-  console.error('\n  This quiz file has problems:\n');
-  for (const e of loaded.errors) console.error('   - ' + e);
-  console.error('');
-  process.exit(1);
-}
-const QUIZ = loaded.quiz;
-// Safe to drop inside a <script> tag: no "</script>", no line-separator characters
-const QUIZ_SCRIPT = JSON.stringify(QUIZ).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
-const rid = n => crypto.randomBytes(n).toString('hex');
-// teams: id -> {id, name, token}; answers/marks/src/disputes: qk -> {teamId -> ...}; keys: qk -> revealed answer;
-// qinfo: qk -> public question; assign: round -> {markerTeamId -> markedTeamId}; src: who gave a mark (peer/auto/host)
-const freshGame = () => ({ teams: {}, answers: {}, marks: {}, src: {}, disputes: {}, assign: {}, jokers: {}, hostTeams: [], slide: null, qinfo: {}, keys: {} });
-let st = { key: rid(4), ...freshGame() };
-try { Object.assign(st, JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))); } catch (e) { /* fresh start */ }
-if (process.argv.includes('--reset')) st = { key: st.key, ...freshGame() };
+/* ---------- Quizzes and rooms ---------- */
+const extraQuiz = argValue('--quiz');
+const library = loadLibrary(path.join(ROOT, 'quizzes'), extraQuiz ? [path.resolve(extraQuiz)] : []);
+const rooms = createRooms({ stateFile: STATE_FILE, log: m => console.log(`  [${new Date().toISOString().slice(11, 19)}] ${m}`) });
+rooms.load(process.argv.includes('--reset'));
 
-let saveT = null;
-function persist() {
-  clearTimeout(saveT);
-  saveT = setTimeout(() => fs.writeFile(STATE_FILE, JSON.stringify(st), () => {}), 400);
+/* ---------- Limits ---------- */
+// Many players can share one address (a pub's Wi-Fi), so per-address limits are generous
+// and the tight ones are per team.
+const limiter = new H.RateLimiter();
+const LIMITS = {
+  create: [10, HOUR],      // new rooms per address
+  join: [60, 10 * MIN],    // new teams per address
+  claim: [20, 10 * MIN],   // quizmaster-key attempts per address
+  miss: [30, MIN],         // looking up room codes that don't exist (stops code guessing)
+  team: [120, MIN],        // actions per team
+  addr: [3000, MIN],       // all player actions per address
+  host: [1500, MIN],       // quizmaster actions per room
+  events: [300, MIN]       // live connections per address
+};
+function allowed(res, kind, who) {
+  const [n, windowMs] = LIMITS[kind];
+  if (limiter.allow(`${kind}:${who}`, n, windowMs)) return true;
+  H.json(res, 429, { error: 'Slow down a little and try again in a minute.' }, { 'Retry-After': '60' });
+  return false;
 }
+const BODY = { default: 16 * 1024, create: MAX_QUIZ_BYTES + 64 * 1024, slide: 96 * 1024, remote: 256 * 1024, teams: 64 * 1024 };
 
-/* ---------- Live connections (Server-Sent Events) ---------- */
-const clients = new Set(); // {res, role, teamId}; role is host (the TV), remote (host's phone) or player
-let remoteData = null;      // the TV's latest private status for the host's phone
-function send(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
-const online = id => [...clients].some(c => c.teamId === id);
-const hostOnline = () => [...clients].some(c => c.role === 'host');
-function toRemotes(event, data) { for (const c of clients) if (c.role === 'remote') send(c.res, event, data); }
-
-function hostView() {
-  return {
-    teams: Object.values(st.teams).map(t => ({ id: t.id, name: t.name, online: online(t.id) })),
-    answers: st.answers, marks: st.marks, src: st.src, disputes: st.disputes, assign: st.assign,
-    jokers: st.jokers, hostTeams: st.hostTeams, slideIndex: st.slide ? st.slide.i : 0
-  };
-}
-const teamName = id => st.teams[id] ? st.teams[id].name : null;
-const maxPts = qk => st.qinfo[qk] && st.qinfo[qk].input === 'music' ? 2 : 1;
-const roundOf = qk => qk.startsWith('tb-') ? null : +qk.split('-')[0];
-const byQ = (a, b) => +a.split('-')[1] - +b.split('-')[1];
-// Pens down: shuffle the teams into a circle and each one marks the next
-function makeAssignment(r) {
-  const ids = Object.keys(st.teams);
-  if (ids.length < 2) return;
-  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
-  st.assign[r] = {};
-  ids.forEach((id, k) => { st.assign[r][id] = ids[(k + 1) % ids.length]; });
-}
-function setMark(qk, id, pts, src) {
-  st.marks[qk] = st.marks[qk] || {}; st.src[qk] = st.src[qk] || {};
-  if (pts == null) { delete st.marks[qk][id]; delete st.src[qk][id]; return; }
-  st.marks[qk][id] = pts; st.src[qk][id] = src;
-  const d = st.disputes[qk] && st.disputes[qk][id];
-  if (src === 'host' && d && d.status === 'open') Object.assign(d, { status: pts === d.from ? 'upheld' : 'overturned', to: pts, ruledAt: Date.now() });
-}
-function playerView(id) {
-  const t = st.teams[id], s = st.slide;
-  const open = s && s.open || [];
-  // The "answer sheet": every known question in the slide's round (or the tiebreakers)
-  const inSheet = qk => s && (s.type === 'tb' ? qk.startsWith('tb-') && (qk === s.q?.qk || open.includes(qk)) : s.r != null && qk.startsWith(s.r + '-'));
-  const sheet = Object.keys(st.qinfo).filter(inSheet)
-    .sort((a, b) => +a.split('-')[1] - +b.split('-')[1])
-    .map(qk => ({
-      qk, info: st.qinfo[qk], my: st.answers[qk]?.[id] || null, open: open.includes(qk),
-      key: st.keys[qk] || null, mark: st.keys[qk] ? st.marks[qk]?.[id] ?? null : null,
-      src: st.keys[qk] ? st.src[qk]?.[id] || null : null, dispute: st.disputes[qk]?.[id] || null
-    }));
-  const assign = s && s.r != null && s.type !== 'tb' ? st.assign[s.r] || {} : {};
-  const target = teamName(assign[id]) ? assign[id] : null;
-  const marker = Object.keys(assign).find(k => assign[k] === id && teamName(k));
-  // The other team's revealed answers this team has to mark
-  const markSheet = !target ? [] : Object.keys(st.keys).filter(qk => roundOf(qk) === s.r && st.qinfo[qk]).sort(byQ).map(qk => ({
-    qk, info: st.qinfo[qk], key: st.keys[qk], their: st.answers[qk]?.[target] || null, max: maxPts(qk),
-    mark: st.marks[qk]?.[target] ?? null, src: st.src[qk]?.[target] || null, dispute: st.disputes[qk]?.[target] || null
-  }));
-  return {
-    me: { id, name: t.name, joker: st.jokers[id] ?? -1, marking: target ? { id: target, name: teamName(target) } : null, markedBy: marker ? teamName(marker) : null },
-    slide: s, sheet, markSheet
-  };
-}
-function broadcast({ host = true, players = true } = {}) {
-  for (const c of clients) {
-    if (c.role === 'host' && host) send(c.res, 'state', hostView());
-    if (c.role === 'player' && players && st.teams[c.teamId]) send(c.res, 'view', playerView(c.teamId));
-  }
-}
-setInterval(() => { for (const c of clients) c.res.write(': ping\n\n'); }, 20000);
-
-/* ---------- Helpers ---------- */
-function body(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', ch => { data += ch; if (data.length > 200000) { reject(new Error('too big')); req.destroy(); } });
-    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
-  });
-}
-function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
-// Pages carry secrets in their URL (?key=...), so never leak it as a referrer and never allow framing
-const SECURITY_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' };
-function file(res, f, transform) {
-  fs.readFile(f, 'utf8', (err, body) => {
-    if (err) { res.writeHead(404); return res.end('Not found'); }
-    const type = f.endsWith('.js') ? 'application/javascript; charset=utf-8' : 'text/html; charset=utf-8';
-    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store', ...SECURITY_HEADERS });
-    res.end(transform ? transform(body) : body);
-  });
-}
-const withQuiz = html => html.replace('/*QUIZ_JSON*/null', () => QUIZ_SCRIPT);
-const byToken = tok => Object.values(st.teams).find(t => t.token === tok && tok);
-const cleanName = s => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+/* ---------- Addresses ---------- */
 // Real Wi-Fi/Ethernet first; VPN-style networks (Tailscale, ZeroTier) last; virtual machine adapters skipped
 const VIRTUAL = /vmware|virtualbox|vethernet|hyper-v|wsl|docker|loopback|bluetooth|vbox/i, VPN = /tailscale|zerotier|hamachi|wireguard/i;
 function networks() {
@@ -159,183 +69,164 @@ function networks() {
   }
   return out.sort((x, y) => x.vpn - y.vpn);
 }
-const lanUrls = () => networks().filter(n => !n.vpn).map(n => n.url);
+/** Where players should go: the public site, or this PC's Wi-Fi address when the TV page is on localhost. */
+function siteUrl(req) {
+  if (PUBLIC_URL) return PUBLIC_URL;
+  const host = String(req.headers.host || `localhost:${PORT}`);
+  if (/^(localhost|127\.|\[::1\])/.test(host)) { const lan = networks().find(n => !n.vpn); if (lan) return lan.url; }
+  return `${H.isHttps(req) ? 'https' : 'http'}://${host}`;
+}
+
+/* ---------- Who is asking ---------- */
+const isHost = (req, room) => H.sameSecret(H.cookies(req).tvh, room.hostKey);
+const teamOf = (req, room) => room.game.teamByToken(H.cookies(req).tvp);
+const roomCookie = (req, room, name, value) => H.setCookie(req, name, value, { path: `/r/${room.code}`, maxAge: COOKIE_AGE });
+const hostLink = room => `/r/${room.code}/host#k=${room.hostKey}`;
 
 /* ---------- Routes ---------- */
-const server = http.createServer(async (req, res) => {
+const ROOM_ROUTE = /^\/r\/([A-Z0-9]{6})(?:\/([a-z]+)(?:\/([a-z]+))?)?\/?$/;
+
+async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
-  const p = url.pathname;
-  try {
-    if (req.method === 'GET') {
-      if (p === '/' || p === '/play') return file(res, PLAYER_FILE);
-      // The host page contains every answer, so it is only served with the key
-      if (SHARED[p]) return file(res, SHARED[p]);
-      if (p === '/host') return url.searchParams.get('key') === st.key ? file(res, HOST_FILE, withQuiz) : (res.writeHead(403), res.end('Wrong or missing host key.'));
-      if (p === '/remote') return url.searchParams.get('key') === st.key ? file(res, REMOTE_FILE) : (res.writeHead(403), res.end('Wrong or missing host key.'));
-      if (p === '/events') {
+  const p = url.pathname, ip = H.clientIp(req);
+
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    if (p === '/') return H.page(res, FILES.index);
+    if (p === '/healthz') return H.text(res, 200, 'ok');
+    if (p === '/favicon.ico') { res.writeHead(204, H.BASE_HEADERS); return res.end(); }
+    if (SCRIPTS[p]) return H.script(res, SCRIPTS[p]);
+    if (p === '/api/quizzes') return H.json(res, 200, { quizzes: [...library.quizzes.values()].map(q => q.summary) });
+
+    // Short join links: /K7QM2X
+    const short = /^\/([A-Za-z0-9]{6})$/.exec(p);
+    if (short) {
+      const code = short[1].toUpperCase();
+      if (rooms.get(code)) { res.writeHead(302, { Location: `/r/${code}`, ...H.BASE_HEADERS }); return res.end(); }
+      if (!allowed(res, 'miss', ip)) return;
+      return H.text(res, 404, 'Not found');
+    }
+
+    const m = ROOM_ROUTE.exec(p);
+    if (m) {
+      const room = rooms.get(m[1]), sub = m[2] || '';
+      if (!room) {
+        if (!allowed(res, 'miss', ip)) return;
+        if (sub === 'events') { res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' }); res.write('event: closed\ndata: {}\n\n'); return res.end(); }
+        res.writeHead(302, { Location: `/?missing=${m[1]}`, ...H.BASE_HEADERS }); return res.end();
+      }
+      if (sub === '') return H.page(res, FILES.play);
+      if (sub === 'host' || sub === 'remote') {
+        if (!isHost(req, room)) return H.page(res, FILES.claim); // reads the key from the link's #fragment
+        if (sub === 'remote') return H.page(res, FILES.remote);
+        const roomInfo = { code: room.code, base: `/r/${room.code}`, joinUrl: `${siteUrl(req)}/${room.code}`, remoteUrl: `${siteUrl(req)}/r/${room.code}/remote#k=${room.hostKey}` };
+        return H.page(res, FILES.show, html => html
+          .replace('/*QUIZ_JSON*/null', () => H.scriptJson(room.quiz))
+          .replace('/*ROOM_JSON*/null', () => H.scriptJson(roomInfo)));
+      }
+      if (sub === 'events') {
+        if (!allowed(res, 'events', ip)) return;
         const role = url.searchParams.get('role');
-        let c;
-        if ((role === 'host' || role === 'remote') && url.searchParams.get('key') === st.key) c = { role };
-        else if (role === 'player') {
-          const t = byToken(url.searchParams.get('token'));
-          if (!t) { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); send(res, 'kicked', {}); return res.end(); }
-          c = { role: 'player', teamId: t.id };
-        } else { res.writeHead(403); return res.end(); }
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-        res.write('retry: 2000\n\n');
-        c.res = res; clients.add(c);
-        if (c.role === 'host') { send(res, 'state', hostView()); toRemotes('tv', { online: true }); }
-        else if (c.role === 'remote') { send(res, 'tv', { online: hostOnline() }); if (remoteData) send(res, 'remote', remoteData); }
-        else { send(res, 'view', playerView(c.teamId)); broadcast({ players: false }); }
-        req.on('close', () => {
-          clients.delete(c);
-          if (c.role === 'player') broadcast({ players: false });
-          if (c.role === 'host') toRemotes('tv', { online: hostOnline() });
-        });
-        return;
-      }
-      if (p === '/api/info') return json(res, 200, { quizName: st.slide?.quizName || QUIZ.title });
-      res.writeHead(404); return res.end('Not found');
-    }
-
-    if (req.method !== 'POST') { res.writeHead(405); return res.end(); }
-    const b = await body(req);
-
-    /* Player actions */
-    if (p === '/api/join') {
-      const existing = byToken(b.token);
-      if (existing) return json(res, 200, { id: existing.id, token: existing.token, name: existing.name });
-      const name = cleanName(b.name);
-      if (!name) return json(res, 400, { error: 'Pick a team name.' });
-      if (Object.values(st.teams).some(t => t.name.toLowerCase() === name.toLowerCase())) return json(res, 409, { error: 'That name is taken. Try another one.' });
-      if (Object.keys(st.teams).length >= MAX_TEAMS) return json(res, 403, { error: 'The quiz is full.' });
-      const t = { id: rid(4), name, token: rid(16) };
-      st.teams[t.id] = t; persist(); broadcast({ players: false });
-      return json(res, 200, { id: t.id, token: t.token, name: t.name });
-    }
-    if (p === '/api/answer') {
-      const t = byToken(b.token); if (!t) return json(res, 401, { error: 'Unknown team. Join again.' });
-      const qk = String(b.qk || '');
-      if (!(st.slide?.open || []).includes(qk)) return json(res, 409, { error: 'Answers for that question are locked.' });
-      const a = String(b.a ?? '').trim().slice(0, 120), bb = String(b.b ?? '').trim().slice(0, 120);
-      st.answers[qk] = st.answers[qk] || {};
-      if (!a && !bb) delete st.answers[qk][t.id]; else st.answers[qk][t.id] = { a, b: bb, at: Date.now() };
-      persist(); broadcast({ players: false });
-      for (const c of clients) if (c.teamId === t.id) send(c.res, 'view', playerView(t.id)); // keep the team's other phones in sync
-      return json(res, 200, { ok: true });
-    }
-    if (p === '/api/joker') {
-      const t = byToken(b.token); if (!t) return json(res, 401, { error: 'Unknown team. Join again.' });
-      const s = st.slide, r = +b.r, cur = st.jokers[t.id];
-      if (!s || s.type !== 'round' || s.r !== r) return json(res, 409, { error: 'Jokers can only be played on the round intro screen.' });
-      if (cur != null && cur >= 0 && cur < r) return json(res, 409, { error: 'You already used your joker.' });
-      st.jokers[t.id] = cur === r ? -1 : r;
-      persist(); broadcast();
-      return json(res, 200, { ok: true });
-    }
-
-    if (p === '/api/peermark') {
-      const t = byToken(b.token); if (!t) return json(res, 401, { error: 'Unknown team. Join again.' });
-      const qk = String(b.qk || ''), r = roundOf(qk), target = r == null ? null : st.assign[r]?.[t.id];
-      if (!target || !st.teams[target]) return json(res, 403, { error: 'You’re not marking this one.' });
-      if (!st.keys[qk]) return json(res, 409, { error: 'Wait for the answer to be revealed.' });
-      if (st.src[qk]?.[target] === 'host') return json(res, 409, { error: 'The quizmaster already ruled on this one.' });
-      if (st.disputes[qk]?.[target]) return json(res, 409, { error: 'This mark is under dispute. The quizmaster decides now.' });
-      const pts = b.pts == null ? null : Math.round(+b.pts);
-      if (pts != null && !(pts >= 0 && pts <= maxPts(qk))) return json(res, 400, { error: 'Bad mark.' });
-      setMark(qk, target, pts, 'peer');
-      persist(); broadcast();
-      return json(res, 200, { ok: true });
-    }
-    if (p === '/api/dispute') {
-      const t = byToken(b.token); if (!t) return json(res, 401, { error: 'Unknown team. Join again.' });
-      const qk = String(b.qk || ''), mark = st.marks[qk]?.[t.id];
-      if (mark == null || !st.keys[qk]) return json(res, 409, { error: 'Nothing to dispute yet.' });
-      if (st.src[qk]?.[t.id] === 'host') return json(res, 409, { error: 'The quizmaster already ruled. Their decision is final!' });
-      if (st.disputes[qk]?.[t.id]) return json(res, 409, { error: 'You already disputed this one.' });
-      st.disputes[qk] = st.disputes[qk] || {};
-      st.disputes[qk][t.id] = { status: 'open', reason: String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 100), from: mark, at: Date.now() };
-      persist(); broadcast();
-      return json(res, 200, { ok: true });
-    }
-
-    /* Host actions */
-    if (!p.startsWith('/api/host/')) { res.writeHead(404); return res.end(); }
-    if (b.key !== st.key) return json(res, 403, { error: 'Bad host key.' });
-    switch (p) {
-      case '/api/host/info': return json(res, 200, { urls: lanUrls(), port: PORT });
-      case '/api/host/remote': // TV -> host's phone
-        remoteData = b.data || null; toRemotes('remote', remoteData);
-        return json(res, 200, { ok: true });
-      case '/api/host/cmd': { // host's phone -> TV
-        const hosts = [...clients].filter(c => c.role === 'host');
-        if (!hosts.length) return json(res, 409, { error: 'The main screen isn’t connected. Open the host link on the TV computer.' });
-        for (const c of hosts) send(c.res, 'cmd', { cmd: String(b.cmd || ''), a: b.a || {} });
-        return json(res, 200, { ok: true });
-      }
-      case '/api/host/slide': {
-        const s = b.slide || null;
-        st.slide = s;
-        if (s) {
-          for (const q of s.infos || []) if (q && q.qk) st.qinfo[q.qk] = q;
-          if (s.q && s.q.qk) st.qinfo[s.q.qk] = s.q;
-          if (s.key && s.key.qk) st.keys[s.key.qk] = s.key;
-          if ((s.type === 'swap' || s.type === 'answer') && s.r != null && !st.assign[s.r]) { makeAssignment(s.r); broadcast({ players: false }); }
+        if (role === 'host' || role === 'remote') {
+          if (!isHost(req, room)) return H.json(res, 403, { error: 'This is the quizmaster’s link.' });
+          return room.game.connect(req, res, { role });
         }
-        persist(); broadcast({ host: false });
-        return json(res, 200, { ok: true });
+        return room.game.connect(req, res, { role: 'player', team: teamOf(req, room) });
       }
-      case '/api/host/mark': {
-        setMark(String(b.qk), String(b.teamId), b.pts == null ? null : +b.pts || 0, 'host');
-        persist(); broadcast();
-        return json(res, 200, { ok: true });
-      }
-      case '/api/host/marks': { // bulk: [{qk, teamId, pts}]
-        for (const m of b.marks || []) if (st.marks[m.qk]?.[m.teamId] == null) setMark(String(m.qk), String(m.teamId), +m.pts || 0, 'auto');
-        persist(); broadcast();
-        return json(res, 200, { ok: true });
-      }
-      case '/api/host/teams': {
-        st.hostTeams = Array.isArray(b.teams) ? b.teams : [];
-        for (const ht of st.hostTeams) if (st.teams[ht.id] && cleanName(ht.name)) st.teams[ht.id].name = cleanName(ht.name);
-        persist(); broadcast({ host: false });
-        return json(res, 200, { ok: true });
-      }
-      case '/api/host/joker': {
-        if (st.teams[b.teamId]) { st.jokers[b.teamId] = +b.r; persist(); broadcast(); }
-        return json(res, 200, { ok: true });
-      }
-      case '/api/host/kick': {
-        const ids = b.all ? Object.keys(st.teams) : [String(b.teamId)];
-        if (b.all) Object.assign(st, { ...freshGame(), teams: st.teams, hostTeams: st.hostTeams, slide: st.slide }); // a brand-new game
-        for (const id of ids) {
-          delete st.teams[id]; delete st.jokers[id];
-          for (const m of [st.answers, st.marks, st.src, st.disputes]) for (const qk in m) delete m[qk][id];
-          for (const r in st.assign) { delete st.assign[r][id]; for (const k in st.assign[r]) if (st.assign[r][k] === id) delete st.assign[r][k]; }
-        }
-        for (const c of clients) if (c.role === 'player' && !st.teams[c.teamId]) { send(c.res, 'kicked', {}); c.res.end(); clients.delete(c); }
-        persist(); broadcast();
-        return json(res, 200, { ok: true });
-      }
+      if (sub === 'info') return H.json(res, 200, { code: room.code, quizName: room.game.state.slide?.quizName || room.quiz.title });
     }
-    res.writeHead(404); res.end();
-  } catch (e) {
-    json(res, 400, { error: 'Bad request' });
+    return H.text(res, 404, 'Not found');
   }
+
+  if (req.method !== 'POST') return H.text(res, 405, 'Method not allowed');
+  if (!H.sameOrigin(req)) return H.json(res, 403, { error: 'Requests must come from Trivvoly itself.' });
+
+  /* Create a room from a built-in quiz or an uploaded one */
+  if (p === '/api/rooms') {
+    if (!allowed(res, 'create', ip)) return;
+    const b = await H.readJson(req, BODY.create);
+    let quiz, quizId = null;
+    if (typeof b.quizId === 'string') {
+      const q = library.quizzes.get(b.quizId);
+      if (!q) return H.json(res, 404, { error: 'That quiz doesn’t exist.' });
+      quiz = q.quiz; quizId = q.id;
+    } else if (b.quiz) {
+      const r = check(b.quiz);
+      if (r.errors) return H.json(res, 422, { error: 'That quiz file has problems.', problems: r.errors });
+      quiz = r.quiz;
+    } else return H.json(res, 400, { error: 'Pick a quiz.' });
+    const made = rooms.create({ quiz, quizId, ip });
+    if (made.error) return H.json(res, made.error[0], { error: made.error[1] });
+    const room = made.room;
+    return H.json(res, 200, { code: room.code, hostUrl: hostLink(room), quiz: summary(quizId, quiz) }, { 'Set-Cookie': roomCookie(req, room, 'tvh', room.hostKey) });
+  }
+
+  const m = ROOM_ROUTE.exec(p);
+  if (!m) return H.json(res, 404, { error: 'Not found.' });
+  const room = rooms.get(m[1]), action = m[2], sub = m[3];
+  if (!room) { if (!allowed(res, 'miss', ip)) return; return H.json(res, 404, { error: 'That game has ended or doesn’t exist.' }); }
+
+  // The quizmaster's key, from the link's #fragment, becomes a cookie for this room only
+  if (action === 'claim' && !sub) {
+    if (!allowed(res, 'claim', ip)) return;
+    const b = await H.readJson(req, BODY.default);
+    if (!H.sameSecret(b.key, room.hostKey)) return H.json(res, 403, { error: 'That quizmaster link isn’t right. Ask whoever started the game for the link again.' });
+    return H.json(res, 200, { ok: true }, { 'Set-Cookie': roomCookie(req, room, 'tvh', room.hostKey) });
+  }
+
+  if (action === 'join' && !sub) {
+    const existing = teamOf(req, room);
+    if (existing) return H.json(res, 200, { id: existing.id, name: existing.name });
+    if (!allowed(res, 'join', ip)) return;
+    const b = await H.readJson(req, BODY.default);
+    const r = room.game.join(b.name);
+    if (r.error) return H.json(res, r.error[0], { error: r.error[1] });
+    return H.json(res, 200, { id: r.team.id, name: r.team.name }, { 'Set-Cookie': roomCookie(req, room, 'tvp', r.team.token) });
+  }
+
+  if (['answer', 'joker', 'peermark', 'dispute'].includes(action) && !sub) {
+    const team = teamOf(req, room);
+    if (!team) return H.json(res, 401, { error: 'Join the game first.', needJoin: true });
+    if (!allowed(res, 'team', `${room.code}:${team.id}`) || !allowed(res, 'addr', ip)) return;
+    const b = await H.readJson(req, BODY.default);
+    const [status, body] = room.game.player(action, team, b);
+    return H.json(res, status, body);
+  }
+
+  if (action === 'host' && sub) {
+    if (!isHost(req, room)) return H.json(res, 403, { error: 'This is the quizmaster’s link.' });
+    if (!allowed(res, 'host', room.code)) return;
+    const b = await H.readJson(req, BODY[sub] || BODY.default);
+    if (sub === 'info') return H.json(res, 200, { code: room.code, joinUrl: `${siteUrl(req)}/${room.code}` });
+    if (sub === 'end') { rooms.remove(room.code, 'ended by the quizmaster'); return H.json(res, 200, { ok: true }); }
+    const [status, body] = room.game.host(sub, b);
+    return H.json(res, status, body);
+  }
+
+  return H.json(res, 404, { error: 'Not found.' });
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(e => {
+    if (res.headersSent) { res.end(); return; }
+    if (e instanceof H.HttpError) return H.json(res, e.status, { error: e.message });
+    console.error(e);
+    H.json(res, 500, { error: 'Something went wrong on our side.' });
+  });
 });
+server.headersTimeout = 20 * 1000;
 
 server.listen(PORT, '0.0.0.0', () => {
-  const nets = networks();
   console.log('\n  Trivvoly is live!\n');
-  console.log(`  Quiz: ${QUIZ.title} (${path.relative(process.cwd(), QUIZ_FILE) || QUIZ_FILE}, ${QUIZ.rounds.length} rounds)\n`);
-  console.log(`  Host (open on THIS computer):  http://localhost:${PORT}/host?key=${st.key}`);
-  console.log('  Players (phones on the same Wi-Fi):');
-  for (const n of nets.filter(n => !n.vpn)) console.log(`     ${n.url}   (${n.name})`);
-  if (!nets.some(n => !n.vpn)) console.log('     (no network found: connect this PC to Wi-Fi)');
-  for (const n of nets.filter(n => n.vpn)) console.log(`  Remote players on your ${n.name} network:  ${n.url}`);
-  const lan = nets.find(n => !n.vpn);
-  console.log(`\n  Your phone as the remote control:  ${lan ? lan.url : `http://localhost:${PORT}`}/remote?key=${st.key}`);
-  console.log('  (or open Menu on the main screen and show the remote QR code)');
-  console.log('\n  Keep the host and remote links to yourself: they show every answer.');
-  console.log('  Start fresh next time with:  node server.js --reset\n');
+  console.log(`  Quizzes: ${[...library.quizzes.values()].map(q => `${q.summary.title} (${q.id})`).join(', ') || 'none (quizmasters can still upload one)'}`);
+  if (library.warnings.length) { console.log('  Skipped or problem quizzes:'); for (const w of library.warnings) console.log('   - ' + w); }
+  if (rooms.size) console.log(`  Restored ${rooms.size} running game${rooms.size === 1 ? '' : 's'}.`);
+  console.log(`\n  Host a quiz:  ${PUBLIC_URL || `http://localhost:${PORT}`}`);
+  if (!PUBLIC_URL) {
+    const lan = networks().filter(n => !n.vpn);
+    if (lan.length) console.log(`  Players on the same Wi-Fi join at:  ${lan[0].url}  (the TV shows the exact link and a QR code)`);
+    for (const n of networks().filter(n => n.vpn)) console.log(`  Players on your ${n.name} network:  ${n.url}`);
+  }
+  console.log('');
 });
+
+module.exports = server;

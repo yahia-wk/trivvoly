@@ -134,18 +134,17 @@ label.field{display:block;margin:12px 0 0;font-size:14px;font-weight:600;opacity
 <div class="offline" id="offline" hidden>Reconnecting…</div>
 <div class="msg" id="msg" role="status" hidden></div>
 
+<script src="/shared/flags.js"></script>
 <script>
 (function () {
 'use strict';
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } },
-  del(k) { try { localStorage.removeItem(k); } catch (e) { /* private mode */ } }
-};
-const TOKEN_KEY = 'trivia-token';
-let token = store.get(TOKEN_KEY), es = null, view = null, received = 0;
+// This page lives at /r/<ROOM CODE>; every call goes to that room. The team's login is an
+// HttpOnly cookie set when joining, so this page never sees or stores a secret.
+const BASE = (location.pathname.match(/^\/r\/[A-Z0-9]{6}/) || [''])[0];
+const FLAGS = window.TRIVVOLY_FLAGS || {};
+let es = null, view = null, received = 0;
 const drafts = {};   // qk -> {a, b} typed but not yet confirmed by the server
 const status = {};   // qk -> {text, cls}
 const disputeOpen = {}, reasons = {}; // dispute forms that are open, and their typed reasons
@@ -160,7 +159,7 @@ async function api(path, data) {
   return j;
 }
 
-fetch('/api/info').then(r => r.json()).then(d => { if (d.quizName) $('#brand').textContent = d.quizName; }).catch(() => {});
+fetch(BASE + '/info').then(r => r.json()).then(d => { if (d.quizName) $('#brand').textContent = d.quizName; }).catch(() => {});
 
 /* ---------- Join ---------- */
 function showJoin() {
@@ -171,8 +170,8 @@ $('#join-form').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('#join-btn'); btn.disabled = true; $('#join-err').textContent = '';
   try {
-    const j = await api('/api/join', { name: $('#team-name').value });
-    token = j.token; store.set(TOKEN_KEY, token); connect();
+    await api(BASE + '/join', { name: $('#team-name').value });
+    connect();
   } catch (err) { $('#join-err').textContent = err.message; }
   btn.disabled = false;
 });
@@ -181,9 +180,12 @@ $('#join-form').addEventListener('submit', async e => {
 function connect() {
   $('#join').hidden = true; game.hidden = false;
   if (es) es.close();
-  es = new EventSource('/events?role=player&token=' + encodeURIComponent(token));
+  es = new EventSource(BASE + '/events?role=player');
+  es.addEventListener('needjoin', () => { view = null; showJoin(); });
+  es.addEventListener('closed', () => { if (es) { es.close(); es = null; } ended(); });
+  es.addEventListener('full', () => { if (es) { es.close(); es = null; } $('#offline').hidden = false; $('#offline').textContent = 'This game is full right now.'; });
   es.addEventListener('view', e => { view = JSON.parse(e.data); received = performance.now(); $('#offline').hidden = true; $('#dot').classList.add('on'); render(); });
-  es.addEventListener('kicked', () => { store.del(TOKEN_KEY); token = null; view = null; showJoin(); $('#join-err').textContent = 'You were removed from the quiz, or the quiz was reset. Join again.'; });
+  es.addEventListener('kicked', () => { view = null; showJoin(); $('#join-err').textContent = 'You were removed from the quiz, or the quiz was reset. Join again.'; });
   es.onerror = () => { $('#offline').hidden = false; $('#dot').classList.remove('on'); };
 }
 
@@ -198,7 +200,7 @@ async function saveNow(qk) {
   clearTimeout(saveT[qk]); saveT[qk] = null;
   const d = drafts[qk]; if (!d) return;
   try {
-    await api('/api/answer', { token, qk, a: d.a, b: d.b });
+    await api(BASE + '/answer', { qk, a: d.a, b: d.b });
     status[qk] = { text: d.a || d.b ? 'Saved ✓' : 'Cleared', cls: 'ok' };
   } catch (err) { status[qk] = { text: err.message, cls: 'err' }; }
   paintStatus(qk);
@@ -233,7 +235,7 @@ game.addEventListener('click', async e => {
   const pm = e.target.closest('[data-pm]');
   if (pm) {
     pm.disabled = true;
-    try { await api('/api/peermark', { token, qk: pm.dataset.qk, pts: pm.classList.contains('on') ? null : +pm.dataset.pm }); } catch (err) { say(err.message); }
+    try { await api(BASE + '/peermark', { qk: pm.dataset.qk, pts: pm.classList.contains('on') ? null : +pm.dataset.pm }); } catch (err) { say(err.message); }
     pm.disabled = false; return;
   }
   const dt = e.target.closest('[data-dispute]');
@@ -245,13 +247,13 @@ game.addEventListener('click', async e => {
   const sd = e.target.closest('[data-send-dispute]');
   if (sd) {
     const qk = sd.dataset.sendDispute; sd.disabled = true;
-    try { await api('/api/dispute', { token, qk, reason: reasons[qk] || '' }); delete disputeOpen[qk]; say('Dispute sent. All eyes on the big screen!'); } catch (err) { say(err.message); sd.disabled = false; }
+    try { await api(BASE + '/dispute', { qk, reason: reasons[qk] || '' }); delete disputeOpen[qk]; say('Dispute sent. All eyes on the big screen!'); } catch (err) { say(err.message); sd.disabled = false; }
     return;
   }
   const jk = e.target.closest('[data-joker]');
   if (jk) {
     jk.disabled = true;
-    try { await api('/api/joker', { token, r: +jk.dataset.joker }); } catch (err) { const s = $('#joker-status'); if (s) { s.textContent = err.message; s.className = 'status err'; } }
+    try { await api(BASE + '/joker', { r: +jk.dataset.joker }); } catch (err) { const s = $('#joker-status'); if (s) { s.textContent = err.message; s.className = 'status err'; } }
     jk.disabled = false;
   }
 });
@@ -272,7 +274,8 @@ function fieldsFor(info, it, prefix) {
 }
 function questionBody(info) {
   let h = '';
-  if (info.flag) h += `<svg class="flag" viewBox="0 0 ${info.flag.w} ${info.flag.h}" width="280" height="${Math.round(280 * info.flag.h / info.flag.w)}" role="img" aria-label="Mystery flag">${info.flag.svg}</svg>`;
+  const f = info.flag && Object.prototype.hasOwnProperty.call(FLAGS, info.flag) ? FLAGS[info.flag] : null;
+  if (f) h += `<svg class="flag" viewBox="0 0 ${f.w} ${f.h}" width="280" height="${Math.round(280 * f.h / f.w)}" role="img" aria-label="Mystery flag">${f.svg}</svg>`;
   if (info.cat) h += `<p><span class="chip">Category: ${esc(info.cat)}</span></p><div class="clue">${esc(info.clue)}</div>`;
   if (info.emoji) h += `<div class="big-emoji" role="img" aria-label="Emoji clue">${esc(info.emoji)}</div>`;
   else if (info.icon && !info.flag && !info.cat) h += `<div class="big-emoji" aria-hidden="true">${esc(info.icon)}</div>`;
@@ -417,7 +420,12 @@ function tickTimer() {
 }
 setInterval(tickTimer, 200);
 
-if (token) connect(); else showJoin();
+function ended() {
+  $('#join').hidden = true; $('#me').hidden = true; $('#offline').hidden = true; game.hidden = false;
+  game.innerHTML = '<div class="card plain center"><div class="wait-ico" aria-hidden="true">👋</div><h2>This game has ended</h2><p class="muted">Thanks for playing! Got a new room code? <a href="/" style="color:var(--gold)">Join another game</a>.</p></div>';
+}
+
+if (!BASE) location.replace('/'); else connect();
 })();
 </script>
 </body>

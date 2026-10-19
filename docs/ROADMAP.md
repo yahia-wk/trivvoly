@@ -30,7 +30,7 @@ New work:
 | Phase | Scope | Status |
 | --- | --- | --- |
 | **0** | Questions move into quiz files (`quizzes/*.json`) with a strict validator; built-in assets (flags) stay in code and quizzes refer to them by id; every quiz text shown on screen is escaped; tidy folder layout; tests. | **Done** |
-| **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | Next |
+| **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | **Built and tested**; deploying is next (needs a hosting account) |
 | **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | |
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
@@ -49,7 +49,7 @@ One bad quiz must never affect anyone else.
 
 - **On save or upload:** rejected with the list of problems shown to the author; never stored.
 - **On room start:** if a stored quiz fails validation (e.g. after a format change), only that room refuses to start, with a message to the quizmaster.
-- **Built-in quizzes at startup:** an invalid file is skipped with a warning; the server starts with the rest. (Phase 0 still exits on a bad quiz because it loads exactly one, chosen by whoever runs it; this changes in Phase 1.)
+- **Built-in quizzes at startup:** an invalid file is skipped with a warning; the server starts with the rest. (Done in Phase 1.)
 
 ## Safety (applies from Phase 1 onwards, designed in from Phase 0)
 
@@ -60,6 +60,18 @@ One bad quiz must never affect anyone else.
 - **Public content (Phase 4).** Report button, review queue, ability to unpublish; private quizzes are never listed.
 - **Privacy.** Collect as little as possible: no player accounts, quizmaster email only, no tracking. A short privacy page. Delete room data when a room expires.
 - **Transport.** HTTPS only in the hosted version; security headers (CSP, no framing).
+
+## What Phase 1 put in place
+
+- **Rooms** (`lib/rooms.js`): 6-character codes from an alphabet without O/0/I/1 (about a billion combinations), a 128-bit quizmaster key per room, at most 300 rooms per server and 5 per address, expiry after 12 hours or 3 idle hours, and **End game** deletes a room immediately. Running games are saved to disk so a restart or deploy doesn't end them.
+- **Quizmaster links** look like `/r/K7QM2X/host#k=<key>`. The key is in the `#` part, which browsers never send to the server (so it never reaches logs), and is swapped for an HttpOnly, SameSite=Strict cookie scoped to `/r/K7QM2X`. The address bar is then wiped.
+- **Teams** get an HttpOnly cookie for their room when they join; no secrets in page scripts or URLs.
+- **Everything from browsers is checked** (`lib/game.js`), including what the room's own quizmaster page sends: question keys and team ids must match strict patterns (this closed a prototype-pollution hole that could have affected every room), slides are rebuilt field by field, flags are names from the built-in library.
+- **HTTP hardening** (`lib/http.js`): a Content-Security-Policy with a fresh nonce per page (no inline scripts except ours, no third-party scripts; the QR library is bundled), `no-referrer`, no framing, JSON-only POSTs with an Origin check, size limits per request type.
+- **Rate limits**: room creation, joining, quizmaster-key attempts, room-code lookups (stops code guessing), and per-team actions. Per-address limits are generous because a whole pub can share one address.
+- **Moderation**: team names with offensive words are refused; dispute reasons are starred out (`lib/moderation.js`, using the `obscenity` library with a short allow-list for innocent words like "Pussycats" and "Dick Fosbury").
+
+Still to consider before heavy traffic: a global cap on open live connections, logging/monitoring, and running more than one server process (rooms would need shared storage such as Redis).
 
 ## Hosting (Phase 1)
 
