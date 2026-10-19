@@ -35,6 +35,22 @@ New work:
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
 
+## Where quizzes live
+
+- **The quiz format is the contract; files are temporary storage.** `shared/quiz-format.js` is what every quiz must pass, wherever it comes from. The `quizzes/` folder holds only built-in quizzes and self-hosters' quizzes.
+- **Online (Phase 2): Postgres.** A `questions` table (one row per question: type, category, difficulty, tags, author, visibility, moderation status, and the per-type content as JSONB in the same shape as the file format) so the bank is searchable and questions can be shared between quizzes; a `quizzes` table (title, owner, settings) with ordered rounds referencing questions.
+- **Every write is validated** with the same rules: the builder, imports, the API.
+- **Rooms snapshot their quiz at start**, so editing a quiz never disturbs a game in progress.
+- **JSON files stay as import/export** (backup, sharing, moving between servers) and the `format` number lets old files be migrated.
+
+## Failure isolation
+
+One bad quiz must never affect anyone else.
+
+- **On save or upload:** rejected with the list of problems shown to the author; never stored.
+- **On room start:** if a stored quiz fails validation (e.g. after a format change), only that room refuses to start, with a message to the quizmaster.
+- **Built-in quizzes at startup:** an invalid file is skipped with a warning; the server starts with the rest. (Phase 0 still exits on a bad quiz because it loads exactly one, chosen by whoever runs it; this changes in Phase 1.)
+
 ## Safety (applies from Phase 1 onwards, designed in from Phase 0)
 
 - **Content is data, never code.** Quiz files are validated against a strict format: only known fields, length limits, limited counts. Unknown fields are dropped. Images and flags come from a built-in library by id, so a quiz can never inject markup or scripts. Every piece of quiz or player text is HTML-escaped when shown.
