@@ -1,4 +1,4 @@
-// Trivia Night live server. No dependencies: run `node server.js`.
+// Trivvoly live server. No dependencies: run `node server.js`.
 // Host screen: the "Host" URL printed at startup. Players: http://<this-pc-ip>:3000 on their phones.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
@@ -285,7 +285,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   const nets = networks();
-  console.log('\n  Trivia Night is live!\n');
+  console.log('\n  Trivvoly is live!\n');
   console.log(`  Host (open on THIS computer):  http://localhost:${PORT}/host?key=${st.key}`);
   console.log('  Players (phones on the same Wi-Fi):');
   for (const n of nets.filter(n => !n.vpn)) console.log(`     ${n.url}   (${n.name})`);

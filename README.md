@@ -1,4 +1,6 @@
-# Trivia Night
+# Trivvoly
+
+> Pens down! A live trivia night for a TV and everyone's phones.
 
 A pub-quiz show for a TV or projector, with phones for the teams and a phone remote for the quizmaster. No dependencies: just Node.js.
 
