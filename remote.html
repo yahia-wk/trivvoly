@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1E0617">
+<meta name="robots" content="noindex">
+<title>Trivia Night: Remote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Bungee&display=swap" rel="stylesheet">
+<style>
+:root{
+  --velvet:#3B0D2B; --velvet-deep:#1E0617; --panel:#2b0b22;
+  --board:#0F3B47; --gold:#F5B83D; --bulb:#FFE9A8; --cream:#FFF6E0; --cherry:#E2384D; --mint:#7FE0C2;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --text:'Bricolage Grotesque','Segoe UI',system-ui,-apple-system,sans-serif;
+  --emoji:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--velvet-deep);color:var(--cream);font-family:var(--text);-webkit-font-smoothing:antialiased}
+body{background:radial-gradient(120% 60% at 50% 0%,var(--velvet) 0,var(--velvet-deep) 70%) fixed;padding:env(safe-area-inset-top,0) 14px calc(96px + env(safe-area-inset-bottom,0))}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:640px;margin:0 auto}
+header{position:sticky;top:0;z-index:5;padding:10px 0 8px;background:linear-gradient(var(--velvet-deep) 80%,transparent)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{font-family:var(--display);color:var(--bulb);font-size:17px;white-space:nowrap}
+.conn{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;opacity:.9}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--cherry);box-shadow:0 0 8px var(--cherry)}
+.dot.on{background:var(--mint);box-shadow:0 0 8px var(--mint)}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.tabs button{padding:9px 0;border-radius:10px;border:1px solid rgba(255,233,168,.25);background:rgba(0,0,0,.2);font-weight:700;font-size:15px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--gold);color:var(--velvet-deep);border-color:var(--gold)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--cherry);color:#fff;font-size:12px;line-height:20px}
+.warnbar{background:rgba(226,56,77,.2);border:1px solid var(--cherry);border-radius:12px;padding:10px 12px;margin:10px 0 0;font-size:14px;font-weight:600}
+.card{background:var(--board);border:2px solid rgba(245,184,61,.4);border-radius:16px;padding:14px 16px;margin:12px 0}
+.card.plain{background:var(--panel)}
+.card.alert{border-color:var(--cherry);box-shadow:0 0 0 3px rgba(226,56,77,.25)}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+h2{font-family:var(--display);font-weight:400;color:var(--bulb);font-size:20px;margin:0 0 8px;line-height:1.2}
+p{margin:0 0 8px;line-height:1.4}
+.muted{opacity:.75;font-size:14px}
+.qtext{font-size:17px;font-weight:700;line-height:1.35}
+.big-emoji{font-family:var(--emoji);font-size:34px;text-align:center;letter-spacing:.08em;margin:4px 0}
+.clue{font-family:var(--display);font-size:20px;letter-spacing:.1em;text-align:center;margin:4px 0}
+.flag{display:block;margin:4px auto 8px;max-width:60%;height:auto;border-radius:3px}
+.key{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(127,224,194,.12);border:1px dashed rgba(127,224,194,.6)}
+.key .lbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mint)}
+.key .ans{font-size:20px;font-weight:800;color:var(--mint)}
+.key .sub{font-size:14px;opacity:.85}
+.row-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 14px;border-radius:12px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.2);font-weight:700;font-size:15px;cursor:pointer}
+.btn.primary{background:var(--gold);color:var(--velvet-deep);border-color:var(--gold)}
+.btn.danger{border-color:var(--cherry);color:#ffb3bc}
+.btn.good{background:var(--mint);border-color:var(--mint);color:var(--velvet-deep)}
+.btn.on{border-color:var(--gold);background:rgba(245,184,61,.2)}
+.btn:disabled{opacity:.45;cursor:default}
+.timer{display:flex;align-items:center;gap:12px;margin-top:10px}
+.timer .t{font-family:var(--display);font-size:30px;min-width:92px;font-variant-numeric:tabular-nums}
+.timer .t.warn{color:var(--cherry)}
+.rows{list-style:none;margin:0;padding:0}
+.rows li{padding:10px 0;border-top:1px solid rgba(255,255,255,.1)}
+.rows li:first-child{border-top:0}
+.rhead{display:flex;align-items:center;gap:8px;font-weight:700}
+.rans{font-size:17px;font-weight:700;margin:4px 0 0;word-break:break-word}
+.rans.none{opacity:.5;font-weight:400;font-style:italic}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08)}
+.chip.match{background:rgba(127,224,194,.2);color:var(--mint)}
+.chip.close{background:rgba(245,184,61,.2);color:var(--gold)}
+.chip.warn{background:rgba(226,56,77,.25);color:#ffb3bc}
+.mk{display:flex;gap:8px;margin-top:8px}
+.mk button{flex:1;padding:11px 0;border-radius:12px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.25);font-family:var(--display);font-size:19px;cursor:pointer}
+.mk button.on.pos{background:var(--mint);border-color:var(--mint);color:var(--velvet-deep)}
+.mk button.on.zero{background:var(--cherry);border-color:var(--cherry);color:#fff}
+.dp{padding:10px 0;border-top:1px solid rgba(255,255,255,.12)}
+.dp:first-of-type{border-top:0}
+.dp .vs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.dp .vs div{background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px}
+.dp .vs b{display:block;font-size:17px;word-break:break-word}
+.dp .vs .k b{color:var(--mint)}
+.dp .reason{font-style:italic;margin:4px 0 0}
+.lbl2{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.score{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.1)}
+.score:first-child{border-top:0}
+.score .rk{font-family:var(--display);color:var(--gold)}
+.score .tot{font-family:var(--display);font-size:20px}
+.score details{grid-column:1/4}
+.score summary{cursor:pointer;font-size:13px;opacity:.8}
+.rounds{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0;font-size:13px;text-align:center}
+.rounds span{background:rgba(0,0,0,.25);border-radius:6px;padding:4px 0}
+.edit{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
+.inp{width:100%;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.3);font-size:16px}
+.jumps{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.jumps .btn{justify-content:flex-start;text-align:left;font-size:14px;padding:10px}
+.check{display:flex;align-items:center;gap:10px;font-size:15px;margin:10px 0}
+.check input{width:22px;height:22px;accent-color:var(--gold)}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:grid;grid-template-columns:1fr 2fr;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0));background:rgba(18,4,14,.96);border-top:1px solid rgba(245,184,61,.3)}
+.nav button{padding:16px 0;border-radius:14px;font-size:19px;font-weight:800;border:2px solid rgba(255,233,168,.35);background:transparent;cursor:pointer}
+.nav .go{background:var(--gold);color:var(--velvet-deep);border-color:var(--gold)}
+.nav button:disabled{opacity:.4}
+.msg{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0));transform:translateX(-50%);background:var(--panel);border:1px solid var(--gold);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:11;max-width:calc(100vw - 28px);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top"><span class="brand">Quizmaster remote</span><span class="conn"><span class="dot" id="dot"></span><span id="conn">Connecting…</span></span></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="live" aria-selected="true">Live<span class="badge" id="dp-badge" hidden></span></button>
+      <button role="tab" data-tab="scores" aria-selected="false">Scores</button>
+      <button role="tab" data-tab="menu" aria-selected="false">Menu</button>
+    </div>
+    <div class="warnbar" id="warn" hidden></div>
+  </header>
+  <main id="main"></main>
+</div>
+<nav class="nav" aria-label="Slides">
+  <button type="button" id="prev">Back</button>
+  <button type="button" class="go" id="next">Next</button>
+</nav>
+<div class="msg" id="msg" role="status" hidden></div>
+
+<script>
+(function () {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const key = new URLSearchParams(location.search).get('key');
+let R = null, tvOnline = false, received = 0, tab = 'live';
+try { tab = sessionStorage.getItem('remote-tab') || 'live'; } catch (e) { /* storage off */ }
+const main = $('#main');
+
+let msgT;
+function say(t) { const m = $('#msg'); m.textContent = t; m.hidden = false; clearTimeout(msgT); msgT = setTimeout(() => { m.hidden = true; }, 3000); }
+async function cmd(c, a = {}) {
+  try {
+    const r = await fetch('/api/host/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, cmd: c, a }) });
+    if (!r.ok) say((await r.json().catch(() => ({}))).error || 'That didn’t work.');
+  } catch (e) { say('Can’t reach the server.'); }
+}
+
+/* ---------- Connection ---------- */
+const es = new EventSource('/events?role=remote&key=' + encodeURIComponent(key || ''));
+es.addEventListener('tv', e => { tvOnline = JSON.parse(e.data).online; paintConn(); });
+es.addEventListener('remote', e => { R = JSON.parse(e.data); received = performance.now(); render(); });
+es.onopen = () => paintConn();
+es.onerror = () => { $('#dot').classList.remove('on'); $('#conn').textContent = 'Reconnecting…'; };
+function paintConn() {
+  $('#dot').classList.toggle('on', tvOnline);
+  $('#conn').textContent = tvOnline ? 'Main screen connected' : 'Main screen offline';
+  const w = $('#warn');
+  if (!tvOnline) { w.hidden = false; w.textContent = 'The main screen isn’t connected. Open the host link on the TV computer.'; }
+  else if (R && !R.soundReady && !R.muted) { w.hidden = false; w.textContent = 'Sound is off on the main screen: click “Start the show” on it once.'; }
+  else w.hidden = true;
+}
+
+/* ---------- Tabs + nav ---------- */
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  tab = b.dataset.tab; try { sessionStorage.setItem('remote-tab', tab); } catch (err) { /* storage off */ }
+  render(); window.scrollTo(0, 0);
+});
+$('#prev').addEventListener('click', () => cmd('prev'));
+$('#next').addEventListener('click', () => cmd('next'));
+
+/* ---------- Rendering ---------- */
+function questionHTML(q) {
+  let h = '';
+  if (q.flag) h += `<svg class="flag" viewBox="0 0 ${q.flag.w} ${q.flag.h}" width="200" height="${Math.round(200 * q.flag.h / q.flag.w)}" role="img" aria-label="Flag">${q.flag.svg}</svg>`;
+  if (q.cat) h += `<p class="muted">Category: ${esc(q.cat)}</p><div class="clue">${esc(q.clue)}</div>`;
+  if (q.emoji) h += `<div class="big-emoji">${esc(q.emoji)}</div>`;
+  if (q.input === 'ab') h += `<p class="qtext">A: ${esc(q.A.text)}<br>B: ${esc(q.B.text)}</p>`;
+  else if (q.text) h += `<p class="qtext">${esc(q.text)}</p>`;
+  h += `<div class="key"><div class="lbl">Answer${R.revealed ? '' : ' (only you can see this)'}</div><div class="ans">${esc(q.answer)}</div>${q.by ? `<div class="sub">${esc(q.by)}</div>` : ''}${q.note ? `<div class="sub">Marking: ${esc(q.note)}</div>` : ''}</div>`;
+  return h;
+}
+function timerHTML() {
+  const t = R.timer; if (!t) return '';
+  const label = t.running ? 'Pause' : t.done ? 'Restart' : t.left < t.total ? 'Resume' : 'Start';
+  return `<div class="timer"><span class="t" id="tt"></span><button class="btn primary" data-cmd="timer">${label} timer</button>
+    ${R.type === 'halftime' ? '<button class="btn" data-cmd="break" data-d="-1">−1 min</button><button class="btn" data-cmd="break" data-d="1">+1 min</button>' : ''}</div>`;
+}
+function actionsHTML() {
+  const b = [];
+  if (R.tune) b.push(`<button class="btn${R.playing ? ' on' : ''}" data-cmd="play">${R.playing ? 'Stop tune' : 'Play tune'}</button>`);
+  if (R.hint) b.push(`<button class="btn${R.hint.on ? ' on' : ''}" data-cmd="hint">${R.hint.on ? 'Hide hint' : 'Show hint'}</button>`);
+  if (R.type === 'halftime') b.push(`<button class="btn${R.lounge ? ' on' : ''}" data-cmd="lounge">${R.lounge ? 'Stop music' : 'Lounge music'}</button>`);
+  if (R.type === 'tbIntro') b.push('<button class="btn" data-cmd="skipWinner">Skip to the winner</button>');
+  b.push('<button class="btn" data-cmd="read">Read aloud</button>');
+  b.push(`<button class="btn${R.muted ? ' on' : ''}" data-cmd="mute">${R.muted ? 'Unmute' : 'Mute'}</button>`);
+  return `<div class="row-btns">${b.join('')}</div>${R.hint ? `<p class="muted" style="margin-top:8px">Hint: ${esc(R.hint.text)}</p>` : ''}`;
+}
+function disputesHTML() {
+  if (!R.disputes.length) return '';
+  const ptsTxt = (v, max) => max > 1 ? `${v}` : v ? '✓' : '✗';
+  return `<div class="card alert"><p class="kicker">⚖️ Disputes</p>${R.disputes.map(d => {
+    const opts = d.max > 1 ? [0, 1, 2] : [d.from, d.from ? 0 : 1];
+    return `<div class="dp"><p><b>${esc(d.team)}</b> challenge${d.marker ? ` the mark from <b>${esc(d.marker)}</b>` : ' their mark'}</p>
+      <p class="muted">${esc(d.what)}</p>
+      <div class="vs"><div><span class="lbl2">Their answer</span><b>${esc(d.theirs)}</b></div><div class="k"><span class="lbl2">Correct</span><b>${esc(d.key)}</b></div></div>
+      ${d.reason ? `<p class="reason">“${esc(d.reason)}”</p>` : ''}<p class="muted">Marked ${ptsTxt(d.from, d.max)}${d.onScreen ? ' · on the big screen now' : ''}</p>
+      <div class="row-btns">${opts.map(v => `<button class="btn ${v === d.from ? 'danger' : 'good'}" data-rule="${esc(d.k)}" data-pts="${v}"${R.ruling ? ' disabled' : ''}>${v === d.from ? `Uphold (${ptsTxt(v, d.max)})` : `Overturn → ${ptsTxt(v, d.max)}`}</button>`).join('')}
+        ${d.onScreen ? `<button class="btn" data-later="${esc(d.k)}">Later</button>` : `<button class="btn" data-show="${esc(d.k)}">Show on screen</button>`}</div></div>`;
+  }).join('')}<p class="muted">Ruling plays a drumroll and the verdict on the big screen.</p></div>`;
+}
+function rowsHTML() {
+  if (!R.rows) return '';
+  const isAns = R.type === 'answer', isTb = R.type === 'tb', opts = R.music ? [0, 1, 2] : [0, 1];
+  if (!R.rows.length) return '<div class="card plain"><p class="muted">No teams have joined yet.</p></div>';
+  const done = R.rows.filter(r => isAns ? r.mark != null : r.answer).length;
+  return `<div class="card plain"><p class="kicker">${isAns ? `Marking · ${done}/${R.rows.length} marked` : `Answers in · ${done}/${R.rows.length}`}</p><ul class="rows">${R.rows.map(r => {
+    const chips = [];
+    if (r.joker) chips.push('<span class="chip">🃏 joker</span>');
+    if (isAns && r.sug) chips.push(`<span class="chip ${r.sug.level}">${r.sug.level === 'match' ? (R.music ? 'looks like ' + r.sug.pts : r.sug.pts ? 'looks right' : 'looks wrong') : 'close?'}</span>`);
+    if (isAns && r.mark != null) chips.push(`<span class="chip">${r.src === 'host' ? 'marked by you' : r.src === 'auto' ? 'auto-marked' : r.marker ? 'by ' + esc(r.marker) : 'marked'}</span>`);
+    else if (isAns && r.marker) chips.push(`<span class="chip">${esc(r.marker)} to mark</span>`);
+    if (r.warn) chips.push('<span class="chip warn">⚠ check this</span>');
+    if (r.dispute) chips.push(`<span class="chip ${r.dispute.status === 'open' ? 'warn' : ''}">⚖️ ${r.dispute.status === 'open' ? 'disputed' : r.dispute.status}</span>`);
+    if (isTb && r.off != null) chips.push(`<span class="chip close">off by ${esc(r.off)}</span>`);
+    const mk = isAns ? `<div class="mk">${opts.map(v => `<button data-mark="${v}" data-id="${esc(r.id)}" class="${r.mark === v ? 'on ' + (v ? 'pos' : 'zero') : ''}" aria-pressed="${r.mark === v}">${R.music ? v : v ? '✓' : '✗'}</button>`).join('')}</div>` : '';
+    return `<li><div class="rhead"><span class="dot${r.online ? ' on' : ''}"></span>${esc(r.name)}</div>
+      <div class="rans${r.answer ? '' : ' none'}">${r.answer ? esc(r.answer) : 'No answer yet'}</div>${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}${mk}</li>`;
+  }).join('')}</ul>${isAns ? '<div class="row-btns"><button class="btn" data-cmd="auto">Auto-mark the obvious ones</button></div>' : ''}
+  ${isTb ? '<p class="muted" style="margin-top:8px">Closest first. Give the winner points in Scores → Adj.</p>' : ''}</div>`;
+}
+function liveHTML() {
+  const head = `<p class="kicker">${esc(R.hud[0] || R.settings.quizName)}${R.hud[1] ? ' · ' + esc(R.hud[1]) : ''}</p>`;
+  let body = '';
+  if (R.q) body = questionHTML(R.q);
+  else if (R.round) body = `<h2>${esc(R.round.icon)} Round ${R.r + 1}: ${esc(R.round.title)}</h2><p class="muted">Teams can play their joker now.</p>`;
+  else body = `<h2>${esc({ title: 'Title screen', rules: 'House rules', swap: 'Pens down', standings: 'Scoreboard', halftime: 'Half-time', tbIntro: 'Tiebreaker', winner: 'And the winners are…', end: 'The end' }[R.type] || R.type)}</h2>`;
+  const teamsCard = !R.rows && R.teams.length ? `<div class="card plain"><p class="kicker">Teams · ${R.teams.filter(t => t.online).length}/${R.teams.length} connected</p>
+    ${R.teams.map(t => `<div class="rhead" style="padding:4px 0"><span class="dot${t.online ? ' on' : ''}"></span>${esc(t.name)}${t.j >= 0 ? ` <span class="chip">🃏 R${t.j + 1}</span>` : ''}</div>`).join('')}</div>` : '';
+  return disputesHTML() + `<div class="card">${head}${body}${timerHTML()}${actionsHTML()}</div>` + rowsHTML() + teamsCard;
+}
+function scoresHTML() {
+  if (!R.teams.length) return '<div class="card plain"><p class="muted">No teams yet.</p></div>';
+  return `<div class="card plain"><p class="kicker">Standings</p>${R.teams.map(t => `<div class="score"><span class="rk">${t.rank}</span>
+    <span><span class="dot${t.online ? ' on' : ''}" style="display:inline-block;margin-right:6px"></span><b>${esc(t.name)}</b></span><span class="tot">${esc(t.total)}</span>
+    <details data-team="${esc(t.id)}"${openTeams.has(t.id) ? ' open' : ''}><summary>Rounds, joker and adjustments</summary>
+      <div class="rounds">${t.s.map((v, k) => `<span title="Round ${k + 1}">R${k + 1}<br><b>${esc(v === '' ? '–' : v)}</b>${t.j === k ? '🃏' : ''}</span>`).join('')}</div>
+      <div class="edit"><label class="field">Joker round<select class="inp" id="j-${esc(t.id)}" data-team-field="j" data-id="${esc(t.id)}"><option value="-1">None</option>${Array.from({ length: R.rc }, (_, k) => `<option value="${k}"${t.j === k ? ' selected' : ''}>Round ${k + 1}</option>`).join('')}</select></label>
+        <label class="field">Adj. (tiebreak / penalty)<input class="inp" id="adj-${esc(t.id)}" type="number" inputmode="decimal" step="0.5" value="${esc(t.adj)}" data-team-field="adj" data-id="${esc(t.id)}"></label></div>
+      <div class="row-btns"><button class="btn danger" data-kick="${esc(t.id)}">${armed === t.id ? 'Tap again to remove' : 'Remove team'}</button></div>
+    </details></div>`).join('')}<p class="muted" style="margin-top:8px">Round scores fill in from marking. Totals include jokers and adjustments.</p></div>`;
+}
+function menuHTML() {
+  const st = R.settings;
+  let here = 0; R.jumps.forEach((j, k) => { if (j[1] <= R.i) here = k; });
+  return `<div class="card plain"><p class="kicker">Jump to</p><div class="jumps">${R.jumps.map((j, k) => `<button class="btn${k === here ? ' on' : ''}" data-jump="${j[1]}">${esc(j[0])}</button>`).join('')}</div></div>
+  <div class="card plain"><p class="kicker">Settings</p>
+    <label class="field">Quiz name<input class="inp" id="set-quizName" data-setting="quizName" maxlength="40" value="${esc(st.quizName)}"></label>
+    <div class="edit"><label class="field">Seconds per question<input class="inp" id="set-seconds" data-setting="seconds" type="number" min="10" max="180" step="5" value="${st.seconds}"></label>
+      <label class="field">Half-time minutes<input class="inp" id="set-breakMinutes" data-setting="breakMinutes" type="number" min="1" max="30" value="${st.breakMinutes}"></label></div>
+    <label class="field" style="margin-top:10px">Volume<input id="set-volume" data-setting="volume" type="range" min="0" max="1" step="0.05" value="${st.volume}"></label>
+    <label class="check"><input type="checkbox" data-setting="autoRead"${st.autoRead ? ' checked' : ''}>Read questions and answers aloud</label>
+    <label class="check"><input type="checkbox" data-setting="autoTimer"${st.autoTimer ? ' checked' : ''}>Start the timer automatically</label>
+    <div class="row-btns"><button class="btn" data-cmd="screen">Close pop-ups on the main screen</button></div></div>`;
+}
+const openTeams = new Set();
+let armed = null, armT;
+function render() {
+  if (!R) { main.innerHTML = '<div class="card plain"><p class="muted">Waiting for the main screen…</p></div>'; return; }
+  paintConn();
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  const bd = $('#dp-badge'); bd.hidden = !R.disputes.length; bd.textContent = R.disputes.length;
+  $('#prev').disabled = !R.canPrev || R.rolling; $('#next').disabled = !R.canNext || R.rolling;
+  $('#next').textContent = R.nextLabel;
+  // Keep whatever is being typed
+  const ae = document.activeElement, fid = ae && ae.id && main.contains(ae) ? ae.id : null, fval = fid ? ae.value : null;
+  main.innerHTML = tab === 'scores' ? scoresHTML() : tab === 'menu' ? menuHTML() : liveHTML();
+  if (fid) { const el = document.getElementById(fid); if (el) { if (el.type !== 'checkbox') el.value = fval; el.focus({ preventScroll: true }); } }
+  tick();
+}
+function tick() {
+  const el = document.getElementById('tt'); if (!el || !R || !R.timer) return;
+  const t = R.timer, left = Math.max(0, t.running ? t.left - (performance.now() - received) / 1000 : t.left), sec = Math.ceil(left);
+  el.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  el.classList.toggle('warn', left <= 5 && R.type !== 'halftime');
+}
+setInterval(tick, 250);
+
+/* ---------- Actions ---------- */
+main.addEventListener('click', e => {
+  const t = e.target;
+  const c = t.closest('[data-cmd]'); if (c) { cmd(c.dataset.cmd, c.dataset.d ? { d: +c.dataset.d } : {}); return; }
+  const m = t.closest('[data-mark]');
+  if (m) { const v = +m.dataset.mark; cmd('mark', { qk: R.qk, id: m.dataset.id, pts: m.classList.contains('on') ? null : v }); return; }
+  const r = t.closest('[data-rule]'); if (r) { cmd('rule', { k: r.dataset.rule, pts: +r.dataset.pts }); return; }
+  const sh = t.closest('[data-show]'); if (sh) { cmd('show', { k: sh.dataset.show }); return; }
+  const lt = t.closest('[data-later]'); if (lt) { cmd('later', { k: lt.dataset.later }); return; }
+  const j = t.closest('[data-jump]'); if (j) { cmd('jump', { i: +j.dataset.jump }); tab = 'live'; try { sessionStorage.setItem('remote-tab', tab); } catch (err) { /* storage off */ } return; }
+  const k = t.closest('[data-kick]');
+  if (k) {
+    if (armed === k.dataset.kick) { armed = null; cmd('kick', { id: k.dataset.kick }); return; }
+    armed = k.dataset.kick; clearTimeout(armT); armT = setTimeout(() => { armed = null; render(); }, 3000); render(); return;
+  }
+});
+main.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.team) { if (d.open) openTeams.add(d.dataset.team); else openTeams.delete(d.dataset.team); } }, true);
+main.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.setting) cmd('setting', { name: el.dataset.setting, value: el.type === 'checkbox' ? el.checked : el.value });
+  else if (el.dataset.teamField) cmd('team', { id: el.dataset.id, field: el.dataset.teamField, value: el.value });
+});
+
+if (!key) main.innerHTML = '<div class="card plain"><p>This page needs the host key. Use the remote link printed by the server, or the QR code under Menu on the main screen.</p></div>';
+else render();
+})();
+</script>
+</body>
+</html>

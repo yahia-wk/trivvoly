@@ -1,0 +1,9 @@
+# Live game state: contains the host key and every team's login token
+trivia-state.json
+
+# Old copy of the quiz from before live play (git history has it now)
+trivia-night.backup.html
+
+node_modules/
+.DS_Store
+Thumbs.db

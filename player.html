@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1E0617">
+<title>Trivia Night: Play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Bungee&display=swap" rel="stylesheet">
+<style>
+:root{
+  --velvet:#3B0D2B; --velvet-deep:#1E0617; --panel:#2b0b22;
+  --board:#0F3B47; --board-hi:#17606F;
+  --gold:#F5B83D; --bulb:#FFE9A8; --cream:#FFF6E0; --cherry:#E2384D; --mint:#7FE0C2;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --text:'Bricolage Grotesque','Segoe UI',system-ui,-apple-system,sans-serif;
+  --emoji:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--velvet-deep);color:var(--cream);font-family:var(--text);-webkit-font-smoothing:antialiased}
+body{background:radial-gradient(120% 60% at 50% 0%,var(--velvet) 0,var(--velvet-deep) 70%) fixed;padding:env(safe-area-inset-top,0) 16px calc(24px + env(safe-area-inset-bottom,0))}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 10px;background:linear-gradient(var(--velvet-deep) 75%,transparent)}
+.brand{font-family:var(--display);color:var(--bulb);font-size:18px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;min-width:0}
+.me span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--cherry);flex:none;box-shadow:0 0 8px var(--cherry)}
+.dot.on{background:var(--mint);box-shadow:0 0 8px var(--mint)}
+.timer{height:10px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden;margin:2px 0 4px}
+.timer i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;transition:background .3s}
+.timer.warn i{background:var(--cherry)}
+.timer-row{display:flex;justify-content:space-between;font-size:13px;opacity:.85;font-variant-numeric:tabular-nums}
+.card{background:var(--board);border:2px solid rgba(245,184,61,.45);border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.card.plain{background:var(--panel)}
+.kicker{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+h1,h2{font-family:var(--display);font-weight:400;color:var(--bulb);margin:0 0 10px;line-height:1.15}
+h1{font-size:30px} h2{font-size:22px}
+p{line-height:1.45;margin:0 0 10px}
+.big-emoji{font-family:var(--emoji);font-size:44px;line-height:1.2;text-align:center;letter-spacing:.08em;margin:6px 0 10px;word-break:break-word}
+.qtext{font-size:20px;font-weight:700;line-height:1.35}
+.clue{font-family:var(--display);font-size:24px;letter-spacing:.12em;text-align:center;margin:8px 0;color:var(--cream);word-break:break-word}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.25);font-size:14px;font-weight:600}
+.flag{display:block;margin:6px auto 12px;max-width:100%;height:auto;border-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.hint{background:rgba(245,184,61,.15);border-left:4px solid var(--gold);padding:8px 12px;border-radius:6px;margin:8px 0}
+label.field{display:block;margin:12px 0 0;font-size:14px;font-weight:600;opacity:.9}
+.inp{display:block;width:100%;margin-top:6px;padding:14px;border-radius:12px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.3);font-size:18px}
+.inp:focus{border-color:var(--gold);outline:none}
+.inp:disabled{opacity:.6}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;border-radius:12px;border:2px solid rgba(255,233,168,.35);background:transparent;font-weight:700;font-size:17px;cursor:pointer}
+.btn.primary{background:var(--gold);color:var(--velvet-deep);border-color:var(--gold)}
+.btn.block{width:100%;margin-top:14px}
+.btn:disabled{opacity:.5;cursor:default}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.ab button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border-radius:14px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.25);cursor:pointer;text-align:center;font-size:15px;line-height:1.3}
+.ab button b{font-family:var(--display);font-weight:400;font-size:26px;color:var(--bulb)}
+.ab button .ico{font-family:var(--emoji);font-size:30px}
+.ab button.sel{border-color:var(--gold);background:rgba(245,184,61,.22);box-shadow:0 0 0 2px var(--gold) inset}
+.ab button:disabled{cursor:default}
+.ab button.sel:disabled{opacity:1}
+.status{font-size:14px;min-height:20px;margin-top:8px;opacity:.9}
+.status.ok{color:var(--mint)} .status.err{color:#ffb3bc}
+.sheet{list-style:none;padding:0;margin:0}
+.sheet li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;padding:12px 0;border-top:1px solid rgba(255,255,255,.1)}
+.sheet li:first-child{border-top:0}
+.sheet .n{font-family:var(--display);color:var(--gold);font-size:18px}
+.sheet .what{font-size:14px;opacity:.75;margin-bottom:4px;word-break:break-word}
+.sheet .mine{font-weight:700;word-break:break-word}
+.sheet .mine.none{opacity:.5;font-weight:400;font-style:italic}
+.sheet .right{font-size:14px;color:var(--mint);margin-top:4px}
+.sheet .res{font-family:var(--display);font-size:16px;padding:4px 8px;border-radius:8px;white-space:nowrap}
+.res.good{background:var(--mint);color:var(--velvet-deep)}
+.res.bad{background:var(--cherry);color:#fff}
+.res.wait{opacity:.5;font-family:var(--text);font-size:13px}
+.sheet .edit{grid-column:2/4}
+.board{list-style:none;padding:0;margin:0}
+.board li{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:rgba(0,0,0,.2)}
+.board li.mine{background:rgba(245,184,61,.2);box-shadow:0 0 0 2px var(--gold) inset}
+.board .rk{font-family:var(--display);color:var(--gold)}
+.board .sc{font-family:var(--display);font-size:18px}
+.joker{display:flex;gap:12px;align-items:center}
+.joker .ico{font-family:var(--emoji);font-size:40px}
+.center{text-align:center}
+.muted{opacity:.75;font-size:15px}
+.wait-ico{font-family:var(--emoji);font-size:54px;text-align:center;margin:4px 0 8px}
+.err-box{color:#ffb3bc;font-weight:600;min-height:22px;margin-top:10px}
+.pm{display:flex;gap:8px;margin-top:10px}
+.pm button{flex:1;padding:12px 0;border-radius:12px;border:2px solid rgba(255,233,168,.3);background:rgba(0,0,0,.25);font-family:var(--display);font-size:20px;cursor:pointer}
+.pm button.on.pos{background:var(--mint);border-color:var(--mint);color:var(--velvet-deep)}
+.pm button.on.zero{background:var(--cherry);border-color:var(--cherry);color:#fff}
+.pm button:disabled{opacity:.5;cursor:default}
+.pm button.on:disabled{opacity:1}
+.sheet li.cur{background:rgba(245,184,61,.1);border-radius:12px;padding:12px 10px;margin:0 -10px}
+.sheet .mcol{grid-column:2/4}
+.note{font-size:13px;opacity:.7;margin-top:3px}
+.dsp{font-size:14px;font-weight:700;margin-top:8px;color:var(--gold)}
+.dsp.upheld{color:#ffb3bc}
+.dsp.overturned{color:var(--mint)}
+.link{background:none;border:0;padding:0;margin-top:8px;color:var(--gold);font-weight:700;font-size:14px;text-decoration:underline;cursor:pointer}
+.dform{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.inp.sm{padding:10px 12px;font-size:16px;margin:0;flex:1 1 100%}
+.btn.sm{padding:10px 14px;font-size:15px}
+.msg{position:fixed;left:50%;bottom:calc(60px + env(safe-area-inset-bottom,0));transform:translateX(-50%);background:var(--panel);border:1px solid var(--gold);padding:10px 16px;border-radius:12px;font-weight:600;font-size:15px;z-index:11;max-width:calc(100vw - 32px);text-align:center}
+.offline{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0));transform:translateX(-50%);background:var(--cherry);color:#fff;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;z-index:10}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand" id="brand">Trivia Night</div>
+    <div class="me" id="me" hidden><span class="dot" id="dot"></span><span id="me-name"></span></div>
+  </header>
+
+  <section id="join" hidden>
+    <div class="card">
+      <p class="kicker">Welcome</p>
+      <h1>Join the quiz</h1>
+      <p class="muted">Pick a team name. Just one phone per team: whoever joins is your team’s answer-writer.</p>
+      <form id="join-form" autocomplete="off">
+        <label class="field" for="team-name">Team name</label>
+        <input class="inp" id="team-name" maxlength="30" required placeholder="The Quizzly Bears" enterkeyhint="go">
+        <button class="btn primary block" type="submit" id="join-btn">Join</button>
+        <div class="err-box" id="join-err" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
+  <main id="game" hidden aria-live="polite"></main>
+</div>
+<div class="offline" id="offline" hidden>Reconnecting…</div>
+<div class="msg" id="msg" role="status" hidden></div>
+
+<script>
+(function () {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* private mode */ } }
+};
+const TOKEN_KEY = 'trivia-token';
+let token = store.get(TOKEN_KEY), es = null, view = null, received = 0;
+const drafts = {};   // qk -> {a, b} typed but not yet confirmed by the server
+const status = {};   // qk -> {text, cls}
+const disputeOpen = {}, reasons = {}; // dispute forms that are open, and their typed reasons
+let msgT;
+function say(text) { const m = $('#msg'); m.textContent = text; m.hidden = false; clearTimeout(msgT); msgT = setTimeout(() => { m.hidden = true; }, 3500); }
+const game = $('#game');
+
+async function api(path, data) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Something went wrong.');
+  return j;
+}
+
+fetch('/api/info').then(r => r.json()).then(d => { if (d.quizName) $('#brand').textContent = d.quizName; }).catch(() => {});
+
+/* ---------- Join ---------- */
+function showJoin() {
+  if (es) { es.close(); es = null; }
+  $('#join').hidden = false; game.hidden = true; $('#me').hidden = true; $('#offline').hidden = true;
+}
+$('#join-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#join-btn'); btn.disabled = true; $('#join-err').textContent = '';
+  try {
+    const j = await api('/api/join', { name: $('#team-name').value });
+    token = j.token; store.set(TOKEN_KEY, token); connect();
+  } catch (err) { $('#join-err').textContent = err.message; }
+  btn.disabled = false;
+});
+
+/* ---------- Live connection ---------- */
+function connect() {
+  $('#join').hidden = true; game.hidden = false;
+  if (es) es.close();
+  es = new EventSource('/events?role=player&token=' + encodeURIComponent(token));
+  es.addEventListener('view', e => { view = JSON.parse(e.data); received = performance.now(); $('#offline').hidden = true; $('#dot').classList.add('on'); render(); });
+  es.addEventListener('kicked', () => { store.del(TOKEN_KEY); token = null; view = null; showJoin(); $('#join-err').textContent = 'You were removed from the quiz, or the quiz was reset. Join again.'; });
+  es.onerror = () => { $('#offline').hidden = false; $('#dot').classList.remove('on'); };
+}
+
+/* ---------- Answers ---------- */
+const saveT = {};
+function queueSave(qk, delay = 600) {
+  clearTimeout(saveT[qk]);
+  status[qk] = { text: 'Saving…', cls: '' }; paintStatus(qk);
+  saveT[qk] = setTimeout(() => saveNow(qk), delay);
+}
+async function saveNow(qk) {
+  clearTimeout(saveT[qk]); saveT[qk] = null;
+  const d = drafts[qk]; if (!d) return;
+  try {
+    await api('/api/answer', { token, qk, a: d.a, b: d.b });
+    status[qk] = { text: d.a || d.b ? 'Saved ✓' : 'Cleared', cls: 'ok' };
+  } catch (err) { status[qk] = { text: err.message, cls: 'err' }; }
+  paintStatus(qk);
+}
+function paintStatus(qk) {
+  document.querySelectorAll(`.status[data-qk="${CSS.escape(qk)}"]`).forEach(el => {
+    const s = status[qk] || { text: '', cls: '' }; el.textContent = s.text; el.className = 'status ' + s.cls;
+  });
+}
+function current(qk, it) {
+  const d = drafts[qk], m = it && it.my;
+  return d || { a: m ? m.a : '', b: m ? m.b : '' };
+}
+game.addEventListener('input', e => {
+  if (e.target.dataset.reason) { reasons[e.target.dataset.reason] = e.target.value; return; }
+  const el = e.target.closest('[data-qk][data-f]'); if (!el) return;
+  const qk = el.dataset.qk, it = findItem(qk);
+  const d = drafts[qk] = { ...current(qk, it) };
+  d[el.dataset.f] = el.value;
+  // Mirror into the other copy of this field (main card and answer sheet)
+  document.querySelectorAll(`[data-qk="${CSS.escape(qk)}"][data-f="${el.dataset.f}"]`).forEach(o => { if (o !== el) o.value = el.value; });
+  queueSave(qk);
+});
+game.addEventListener('focusout', e => { const el = e.target.closest('[data-qk][data-f]'); if (el && saveT[el.dataset.qk]) saveNow(el.dataset.qk); });
+game.addEventListener('click', async e => {
+  const ab = e.target.closest('[data-ab]');
+  if (ab) {
+    const qk = ab.dataset.qk; drafts[qk] = { a: ab.dataset.ab, b: '' };
+    document.querySelectorAll(`[data-ab][data-qk="${CSS.escape(qk)}"]`).forEach(b => { b.classList.toggle('sel', b.dataset.ab === drafts[qk].a); b.setAttribute('aria-pressed', b.dataset.ab === drafts[qk].a); });
+    saveNow(qk); return;
+  }
+  const pm = e.target.closest('[data-pm]');
+  if (pm) {
+    pm.disabled = true;
+    try { await api('/api/peermark', { token, qk: pm.dataset.qk, pts: pm.classList.contains('on') ? null : +pm.dataset.pm }); } catch (err) { say(err.message); }
+    pm.disabled = false; return;
+  }
+  const dt = e.target.closest('[data-dispute]');
+  if (dt) {
+    const qk = dt.dataset.dispute; disputeOpen[qk] = !disputeOpen[qk]; render();
+    const el = document.getElementById('dr-' + qk); if (el) el.focus();
+    return;
+  }
+  const sd = e.target.closest('[data-send-dispute]');
+  if (sd) {
+    const qk = sd.dataset.sendDispute; sd.disabled = true;
+    try { await api('/api/dispute', { token, qk, reason: reasons[qk] || '' }); delete disputeOpen[qk]; say('Dispute sent. All eyes on the big screen!'); } catch (err) { say(err.message); sd.disabled = false; }
+    return;
+  }
+  const jk = e.target.closest('[data-joker]');
+  if (jk) {
+    jk.disabled = true;
+    try { await api('/api/joker', { token, r: +jk.dataset.joker }); } catch (err) { const s = $('#joker-status'); if (s) { s.textContent = err.message; s.className = 'status err'; } }
+    jk.disabled = false;
+  }
+});
+function findItem(qk) { return view && view.sheet.find(x => x.qk === qk); }
+
+/* ---------- Rendering ---------- */
+function fieldsFor(info, it, prefix) {
+  const qk = info.qk, v = current(qk, it), dis = it && it.open ? '' : ' disabled';
+  if (info.input === 'ab') {
+    const opt = (k, o) => `<button type="button" data-ab="${k}" data-qk="${esc(qk)}" class="${v.a === k ? 'sel' : ''}" aria-pressed="${v.a === k}"${dis}><b>${k}</b><span class="ico" aria-hidden="true">${esc(o.icon)}</span><span>${esc(o.text)}</span></button>`;
+    return `<div class="ab">${opt('A', info.A)}${opt('B', info.B)}</div>`;
+  }
+  const inp = (f, label, val, extra = '') => `<label class="field" for="${prefix}-${esc(qk)}-${f}">${label}</label>
+    <input class="inp" id="${prefix}-${esc(qk)}-${f}" data-qk="${esc(qk)}" data-f="${f}" value="${esc(val)}" maxlength="120" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"${extra}${dis}>`;
+  if (info.input === 'music') return inp('a', 'Song title', v.a) + inp('b', `${esc(info.bLabel || 'Artist')} (bonus point)`, v.b);
+  if (info.input === 'number') return inp('a', 'Your number', v.a, ' inputmode="decimal"');
+  return inp('a', 'Your answer', v.a);
+}
+function questionBody(info) {
+  let h = '';
+  if (info.flag) h += `<svg class="flag" viewBox="0 0 ${info.flag.w} ${info.flag.h}" width="280" height="${Math.round(280 * info.flag.h / info.flag.w)}" role="img" aria-label="Mystery flag">${info.flag.svg}</svg>`;
+  if (info.cat) h += `<p><span class="chip">Category: ${esc(info.cat)}</span></p><div class="clue">${esc(info.clue)}</div>`;
+  if (info.emoji) h += `<div class="big-emoji" role="img" aria-label="Emoji clue">${esc(info.emoji)}</div>`;
+  else if (info.icon && !info.flag && !info.cat) h += `<div class="big-emoji" aria-hidden="true">${esc(info.icon)}</div>`;
+  if (info.text) h += `<p class="qtext">${esc(info.text)}</p>`;
+  if (info.hint) h += `<div class="hint">Hint: ${esc(info.hint)}</div>`;
+  return h;
+}
+function answerText(info, my) {
+  if (!my || (!my.a && !my.b)) return '<div class="mine none">No answer</div>';
+  if (info.input === 'ab') return `<div class="mine">${esc(my.a)}: ${esc(info[my.a] ? info[my.a].text : '')}</div>`;
+  return `<div class="mine">${esc(my.a || '—')}${my.b ? ` <span class="muted">· ${esc(my.b)}</span>` : ''}</div>`;
+}
+function resultBadge(it) {
+  if (!it.key) return '';
+  if (it.mark == null) return '<span class="res wait">marking…</span>';
+  const max = it.info.input === 'music' ? 2 : 1;
+  return `<span class="res ${it.mark > 0 ? 'good' : 'bad'}">${it.mark > 0 ? (max > 1 ? '+' + it.mark : '✓') : '✗'}</span>`;
+}
+const whatOf = i => i.cat ? `${i.cat}: ${i.clue}` : i.emoji ? i.emoji : i.flag ? 'Flag' : i.input === 'ab' ? `${i.A.text} / ${i.B.text}` : i.text;
+const keyLine = k => `<div class="right">Answer: ${esc(k.a)}${k.sub ? ' · ' + esc(k.sub) : ''}</div>`;
+function disputeLine(d) {
+  if (!d) return '';
+  if (d.status === 'open') return '<div class="dsp">⚖️ Disputed! The quizmaster will rule on the big screen.</div>';
+  return `<div class="dsp ${d.status}">⚖️ ${d.status === 'upheld' ? 'Dispute rejected: the mark stands.' : 'Dispute won: mark overturned!'}</div>`;
+}
+function disputeCtl(it) {
+  if (it.dispute) return disputeLine(it.dispute);
+  if (!it.key || it.mark == null) return '';
+  if (it.src === 'host') return '<div class="dsp">Marked by the quizmaster. Their decision is final.</div>';
+  const qk = esc(it.qk);
+  if (!disputeOpen[it.qk]) return `<button type="button" class="link" data-dispute="${qk}">Dispute this mark</button>`;
+  return `<div class="dform"><input class="inp sm" id="dr-${qk}" data-reason="${qk}" maxlength="100" placeholder="Why? (optional, shown on the big screen)" value="${esc(reasons[it.qk] || '')}" autocomplete="off">
+    <button type="button" class="btn primary sm" data-send-dispute="${qk}">Send dispute</button><button type="button" class="btn sm" data-dispute="${qk}">Cancel</button></div>`;
+}
+function sheetHTML(items, editable) {
+  if (!items.length) return '';
+  const rows = items.map(it => {
+    const i = it.info;
+    const edit = editable && it.open ? `<div class="edit">${fieldsFor(i, it, 'sh')}<div class="status" data-qk="${esc(i.qk)}"></div></div>` : '';
+    const extra = edit ? '' : answerText(i, it.my) + (it.key ? keyLine(it.key) : '') + disputeCtl(it);
+    return `<li><span class="n">${esc(i.n || '')}</span><div><div class="what">${esc(whatOf(i))}</div>${extra}</div>${resultBadge(it)}${edit}</li>`;
+  }).join('');
+  return `<ul class="sheet">${rows}</ul>`;
+}
+// The other team's answers, newest reveal first, with mark buttons
+function markSheetHTML(items, cur) {
+  return '<ul class="sheet">' + items.slice().reverse().map(it => {
+    const i = it.info, a = it.their, theirs = !a || (!a.a && !a.b) ? '' : i.input === 'ab' ? `${a.a}: ${i[a.a] ? i[a.a].text : ''}` : a.a + (a.b ? ' · ' + a.b : '');
+    const locked = it.src === 'host' || !!it.dispute, opts = it.max === 2 ? [0, 1, 2] : [0, 1];
+    const btns = `<div class="pm">${opts.map(v => `<button type="button" data-pm="${v}" data-qk="${esc(it.qk)}" class="${it.mark === v ? 'on ' + (v ? 'pos' : 'zero') : ''}" aria-pressed="${it.mark === v}" aria-label="${v} point${v === 1 ? '' : 's'}"${locked ? ' disabled' : ''}>${it.max === 2 ? v : v ? '✓' : '✗'}</button>`).join('')}</div>`;
+    return `<li class="${it.qk === cur ? 'cur' : ''}"><span class="n">${esc(i.n)}</span><div class="mcol">
+      <div class="what">${esc(whatOf(i))}</div><div class="mine${theirs ? '' : ' none'}">${theirs ? esc(theirs) : 'No answer'}</div>
+      ${keyLine(it.key)}${it.key.note ? `<div class="note">Marking note: ${esc(it.key.note)}</div>` : ''}${btns}
+      ${it.dispute ? disputeLine(it.dispute) : it.src === 'host' ? '<div class="dsp">The quizmaster marked this one.</div>' : ''}</div></li>`;
+  }).join('') + '</ul>';
+}
+function standingsHTML(list) {
+  if (!list || !list.length) return '<p class="muted">No scores yet.</p>';
+  return `<ol class="board">${list.map(x => `<li class="${x.id === view.me.id ? 'mine' : ''}"><span class="rk">${x.rank}</span><span>${esc(x.name)}</span><span class="sc">${esc(x.total)}</span></li>`).join('')}</ol>`;
+}
+function waitCard(icon, title, text) {
+  return `<div class="card plain center"><div class="wait-ico" aria-hidden="true">${icon}</div><h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ''}</div>`;
+}
+
+function build() {
+  const s = view.slide, me = view.me;
+  if (!s) return waitCard('⏳', 'You’re in!', 'Waiting for the quizmaster to start.');
+  if (s.quizName) $('#brand').textContent = s.quizName;
+  const sheetItems = view.sheet;
+  switch (s.type) {
+    case 'title': case 'rules':
+      return waitCard('🎉', 'You’re in!', 'Eyes on the big screen. The quiz starts soon.');
+    case 'round': {
+      const rd = s.round || {}, used = me.joker >= 0 && me.joker < s.r, here = me.joker === s.r;
+      return `<div class="card"><p class="kicker">Round ${s.r + 1} of ${s.rc}</p><h1>${esc(rd.icon || '')} ${esc(rd.title || '')}</h1>
+        <p>${esc(rd.blurb || '')}</p><p class="muted">${esc(rd.scoring || '')}</p></div>
+        <div class="card plain"><div class="joker"><span class="ico" aria-hidden="true">🃏</span><div>
+          <h2>Joker</h2><p class="muted">${here ? 'Your joker is on this round: points count double!' : used ? `You played your joker in round ${me.joker + 1}.` : me.joker > s.r ? `Your joker is set for round ${me.joker + 1}.` : 'Double your points for one round. Play it before the round starts.'}</p></div></div>
+          ${used ? '' : `<button class="btn ${here ? '' : 'primary'} block" data-joker="${s.r}">${here ? 'Take joker back' : 'Play joker on this round'}</button>`}
+          <div class="status" id="joker-status"></div></div>`;
+    }
+    case 'question': case 'tb': {
+      const info = s.q, it = findItem(info.qk) || { open: true, my: null };
+      const others = sheetItems.filter(x => x.qk !== info.qk);
+      return `<div class="card"><p class="kicker">${esc(s.hud && s.hud[1] || info.label || '')}</p>${questionBody(info)}
+          ${fieldsFor(info, it, 'q')}<div class="status" data-qk="${esc(info.qk)}"></div></div>
+        ${others.length ? `<div class="card plain"><p class="kicker">Earlier this round: change answers until pens down</p>${sheetHTML(others, true)}</div>` : ''}`;
+    }
+    case 'swap':
+      return waitCard('✏️', 'Pens down!', 'Answers are locked. Marking is next.') +
+        (me.marking ? `<div class="card"><p class="kicker">Your marking job</p><h2>You’re marking ${esc(me.marking.name)}</h2><p class="muted">As each answer is revealed, their answer appears here. Tap ✓ or ✗. Be fair… ish.</p></div>` : '') +
+        `<div class="card plain"><p class="kicker">Your answers</p>${sheetHTML(sheetItems, false)}</div>`;
+    case 'answer': {
+      const rev = sheetItems.filter(x => x.key), total = rev.reduce((a, x) => a + (x.mark || 0), 0);
+      const mk = view.markSheet || [];
+      const marking = me.marking ? `<div class="card"><p class="kicker">You’re marking</p><h2>${esc(me.marking.name)}</h2>
+          ${mk.length ? markSheetHTML(mk, s.q && s.q.qk) : '<p class="muted">Their answers appear here as each answer is revealed.</p>'}</div>` : '';
+      return marking + `<div class="card plain"><p class="kicker">Your answers${me.markedBy ? `, marked by ${esc(me.markedBy)}` : ''}</p>
+          <p class="muted">${rev.length ? `So far this round: ${total} point${total === 1 ? '' : 's'}${me.joker === s.r ? `, doubled to ${total * 2} by your joker!` : ''}` : 'Watch the big screen for the answer.'}</p>
+          ${sheetHTML(sheetItems, false)}</div>`;
+    }
+    case 'standings':
+      return `<div class="card"><p class="kicker">Scoreboard</p><h2>${esc(s.hud && s.hud[1] || 'Standings')}</h2>${standingsHTML(s.standings)}</div>`;
+    case 'halftime': return waitCard('🍕', 'Half-time', 'Refills, snacks, and arguing about the flags.');
+    case 'tbIntro': return waitCard('⚖️', 'Tiebreaker', 'Only if teams are level at the top. Closest number wins.');
+    case 'winner':
+      return s.standings ? `<div class="card center"><div class="wait-ico">🏆</div><p class="kicker">Tonight’s champions</p><h1>${esc(s.standings.filter(x => x.rank === 1).map(x => x.name).join(' & '))}</h1></div><div class="card plain">${standingsHTML(s.standings)}</div>`
+        : waitCard('🥁', 'And the winners are…', 'Drumroll, please. Look at the big screen!');
+    case 'end':
+      return waitCard('🎉', 'Thanks for playing!', 'Get home safe.') + (s.standings ? `<div class="card plain"><p class="kicker">Final scores</p>${standingsHTML(s.standings)}</div>` : '');
+  }
+  return waitCard('📺', 'Eyes on the big screen', '');
+}
+
+let timerBox = null;
+function render() {
+  if (!view) return;
+  $('#me').hidden = false; $('#me-name').textContent = view.me.name;
+  // Drop drafts the server has caught up with, or that can no longer be edited
+  for (const qk of Object.keys(drafts)) {
+    const it = findItem(qk), d = drafts[qk];
+    const synced = it && (it.my ? it.my.a === d.a && (it.my.b || '') === (d.b || '') : !d.a && !d.b);
+    if (!it || !it.open || (synced && !saveT[qk])) delete drafts[qk];
+  }
+  // Keep focus and caret across re-renders
+  const ae = document.activeElement, fid = ae && ae.id, sel = ae && ae.selectionStart != null ? [ae.selectionStart, ae.selectionEnd] : null;
+  const t = view.slide && view.slide.timer;
+  game.innerHTML = (t && t.mode === 'q' ? `<div id="timer-box"><div class="timer"><i></i></div><div class="timer-row"><span>Time left</span><span id="timer-txt"></span></div></div>` : '') + build();
+  timerBox = $('#timer-box');
+  Object.keys(status).forEach(paintStatus);
+  if (fid) { const el = document.getElementById(fid); if (el && !el.disabled) { el.focus({ preventScroll: true }); if (sel && el.setSelectionRange) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* number inputs */ } } }
+  tickTimer();
+}
+function tickTimer() {
+  if (!timerBox || !view || !view.slide || !view.slide.timer) return;
+  const t = view.slide.timer;
+  const left = Math.max(0, t.running ? t.left - (performance.now() - received) / 1000 : t.left);
+  const frac = t.total ? left / t.total : 0, sec = Math.ceil(left);
+  timerBox.querySelector('i').style.transform = `scaleX(${frac})`;
+  timerBox.querySelector('.timer').classList.toggle('warn', left <= 5);
+  $('#timer-txt').textContent = t.done || left <= 0 ? 'Time’s up!' : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}${t.running ? '' : left >= t.total ? ' (not started)' : ' (paused)'}`;
+}
+setInterval(tickTimer, 200);
+
+if (token) connect(); else showJoin();
+})();
+</script>
+</body>
+</html>
