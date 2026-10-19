@@ -7,8 +7,10 @@ A pub-quiz show for a TV or projector, with phones for the teams and a phone rem
 ## Run it
 
 ```
-node server.js            # or double-click start-trivia.bat
-node server.js --reset    # start a brand-new game (keeps the same host key)
+node server.js                              # or double-click start-trivia.bat
+node server.js --reset                      # start a brand-new game (keeps the same host key)
+node server.js --quiz quizzes/my-quiz.json  # play a different quiz
+npm test                                    # run the tests
 ```
 
 The server prints three links:
@@ -19,14 +21,24 @@ The server prints three links:
 
 Keep the host and remote links private: they include the answers. Allow Node.js through the Windows firewall on private networks the first time, or phones can't connect. Set `PORT` to use something other than 3000.
 
+## Write your own quiz
+
+Quizzes are JSON files in [`quizzes/`](quizzes/). Copy [`quizzes/classic.json`](quizzes/classic.json), change the questions, and start the server with `--quiz`. Every quiz is checked when the server starts; if something is wrong you get a list of exactly what and where.
+
+Round kinds: `standard` (question + answer), `flag` (a built-in flag, or emoji + question), `music` (a tune played live, or emoji clues; bonus point for the artist), `emoji`, `vowels` (missing-vowels puzzles) and `versus` (which came first, A or B). See [docs/ROADMAP.md](docs/ROADMAP.md#quiz-file-format-phase-0) for the format and [`shared/quiz-format.js`](shared/quiz-format.js) for every rule and limit.
+
 ## Files
 
-| File | What it is |
+| Path | What it is |
 | --- | --- |
-| `trivia-night.html` | The show on the big screen: slides, questions (`ROUNDS`, `TIEBREAKERS`, `RULES` near the top), sound, timer, scores. Also works on its own, opened straight from disk, without phones. |
-| `player.html` | Team phone page: join, answer, play the joker, mark another team, dispute marks. |
-| `remote.html` | Quizmaster phone remote. |
-| `server.js` | Serves the pages, keeps the game state in `trivia-state.json`, and relays live updates (Server-Sent Events). |
+| `public/show.html` | The show on the big screen: slides, sound, timer, scores, answers panel, disputes. |
+| `public/play.html` | Team phone page: join, answer, play the joker, mark another team, dispute marks. |
+| `public/remote.html` | Quizmaster phone remote. |
+| `quizzes/` | Quiz files. `classic.json` is the default. |
+| `shared/quiz-format.js` | The quiz file rules, used to validate every quiz. |
+| `shared/flags.js` | Built-in flag pictures that quizzes refer to by name. |
+| `server.js` | Serves the pages, loads the quiz, keeps the game state in `trivia-state.json`, and relays live updates (Server-Sent Events). |
+| `docs/ROADMAP.md` | The plan for taking Trivvoly online. |
 
 ## How a round works
 

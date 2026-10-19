@@ -436,165 +436,27 @@ table.scores{width:100%;border-collapse:collapse;font-size:15px;min-width:900px}
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="/shared/flags.js"></script>
 <script>
-/* ===================== QUIZ CONTENT ===================== */
-const HALFTIME_AFTER = 3; // half-time after round 4 (0-based index)
-
-function starPoly(cx, cy, R, fill) {
-  const r = R * 0.382, pts = [];
-  for (let k = 0; k < 10; k++) {
-    const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? r : R;
-    pts.push((cx + rad * Math.cos(a)).toFixed(4) + ',' + (cy + rad * Math.sin(a)).toFixed(4));
-  }
-  return `<polygon points="${pts.join(' ')}" fill="${fill}"/>`;
-}
-
-const FLAGS = {
-  czechia: { w: 6, h: 4, svg: '<rect width="6" height="4" fill="#FFFFFF"/><rect y="2" width="6" height="2" fill="#D7141A"/><path d="M0 0L3 2L0 4Z" fill="#11457E"/>' },
-  estonia: { w: 33, h: 21, svg: '<rect width="33" height="21" fill="#FFFFFF"/><rect width="33" height="14" fill="#000000"/><rect width="33" height="7" fill="#0072CE"/>' },
-  panama: { w: 6, h: 4, svg: '<rect width="6" height="4" fill="#FFFFFF"/><rect x="3" width="3" height="2" fill="#D21034"/><rect y="2" width="3" height="2" fill="#005293"/>' + starPoly(1.5, 1, 0.55, '#005293') + starPoly(4.5, 3, 0.55, '#D21034') },
-  myanmar: { w: 18, h: 12, svg: '<rect width="18" height="4" fill="#FECB00"/><rect y="4" width="18" height="4" fill="#34B233"/><rect y="8" width="18" height="4" fill="#EA2839"/>' + starPoly(9, 6.46, 4.8, '#FFFFFF') },
-  seychelles: { w: 12, h: 6, svg: '<path d="M0 6L0 0L4 0Z" fill="#003F87"/><path d="M0 6L4 0L8 0Z" fill="#FCD856"/><path d="M0 6L8 0L12 0L12 2Z" fill="#D62828"/><path d="M0 6L12 2L12 4Z" fill="#FFFFFF"/><path d="M0 6L12 4L12 6Z" fill="#007A3D"/>' },
-  mauritius: { w: 6, h: 4, svg: '<rect width="6" height="1" fill="#EA2839"/><rect y="1" width="6" height="1" fill="#1A206D"/><rect y="2" width="6" height="1" fill="#FFD500"/><rect y="3" width="6" height="1" fill="#00A551"/>' }
-};
-
-/* Melodies (public-domain classical works only).
-   Format: NOTE:length in units. R = rest. unit = seconds per unit. */
-const TUNES = [
-  { inst: 'brass', unit: 0.14, transpose: 12, notes: 'C4:2 D4:1 F4:1 E4:1 D4:1 G4:2 G4:2 G4:1 A4:1 E4:1 F4:1 D4:2 D4:2 D4:1 F4:1 E4:1 D4:1 C4:1 C5:1 B4:1 A4:1 G4:1 F4:1 E4:1 D4:1 C4:2' },
-  { inst: 'pluck', unit: 0.2, notes: 'B3:1 C#4:1 D4:1 E4:1 F#4:1 D4:1 F#4:2 F4:1 C#4:1 F4:2 E4:1 C4:1 E4:2 B3:1 C#4:1 D4:1 E4:1 F#4:1 D4:1 F#4:1 B4:1 A4:1 F#4:1 D4:1 F#4:1 A4:4' },
-  { inst: 'organ', unit: 0.11, double: -12, notes: 'A5:1 G5:1 A5:8 R:4 G5:1 F5:1 E5:1 D5:1 C#5:5 D5:10 R:4 A4:1 G4:1 A4:8 R:4 G4:1 F4:1 E4:1 D4:1 C#4:5 D4:10' }
-];
-
-const ROUNDS = [
-  {
-    title: 'Pot luck', icon: '🎲', kind: 'standard',
-    blurb: 'A bit of everything to warm up the brain cells.',
-    scoring: '8 questions, 1 point each.',
-    questions: [
-      { icon: '🔤', q: 'Which letter of the alphabet does not appear in the name of any US state?', a: 'Q', say: 'the letter Q', fact: 'J shows up only in New Jersey, and Z only in Arizona.' },
-      { icon: '🏅', q: 'The “Fosbury Flop” is a technique used in which athletics event?', a: 'High jump', fact: 'Dick Fosbury won Olympic gold with it at Mexico City in 1968, and it soon became the standard style.' },
-      { icon: '🕰️', q: 'Which artist painted The Persistence of Memory, the famous picture of melting clocks?', a: 'Salvador Dalí', mark: '“Dalí” is enough.', fact: 'Painted in 1931, it is surprisingly small, about 24 × 33 cm. It hangs in MoMA in New York.' },
-      { icon: '🏰', q: 'What is the national animal of Scotland?', a: 'The unicorn', fact: 'In Scottish heraldry the unicorn is usually shown wearing a golden chain.' },
-      { icon: '🏉', q: 'How many players does each team have on the pitch in rugby union?', a: '15', say: 'fifteen', fact: 'Rugby league uses 13 a side, and rugby sevens, as the name suggests, uses 7.' },
-      { icon: '🥘', q: 'Which spice, taken from the stigmas of a crocus flower, is the most expensive in the world by weight?', a: 'Saffron', fact: 'Each flower gives only three stigmas, so a kilo takes roughly 150,000 flowers, all picked by hand.' },
-      { icon: '🔎', q: 'What is the name of Agatha Christie’s famous Belgian detective?', a: 'Hercule Poirot', mark: '“Poirot” is enough.', fact: 'He first appeared in The Mysterious Affair at Styles, published in 1920.' },
-      { icon: '☀️', q: 'In Greek mythology, who flew too close to the sun on wings made of feathers and wax?', a: 'Icarus', fact: 'The wings were built by his father, the craftsman Daedalus, to escape from Crete.' }
-    ]
-  },
-  {
-    title: 'Name that flag', icon: '🏁', kind: 'flag',
-    blurb: 'Tougher flags this time, plus two flags you’ll have to picture from the animals on them.',
-    scoring: '8 questions, 1 point each.',
-    questions: [
-      { flag: 'czechia', a: 'Czech Republic', mark: '“Czechia” also counts. Slovakia is wrong: it has a coat of arms.', fact: 'When Czechoslovakia split in 1993, the Czech Republic kept the old flag, even though both sides had agreed not to.' },
-      { emoji: '🦅 🐍 🌵', q: 'Which country’s flag shows an eagle eating a snake while perched on a cactus?', a: 'Mexico', fact: 'It comes from an Aztec legend: the gods said to build their city where they saw this exact scene.' },
-      { flag: 'estonia', a: 'Estonia', fact: 'The blue, black and white was first used by an Estonian student society in 1884.' },
-      { flag: 'panama', a: 'Panama', fact: 'Red and blue are said to stand for the country’s two old political parties, and white for peace between them.' },
-      { emoji: '🦁 ⚔️', q: 'Which country’s flag shows a golden lion holding a sword?', a: 'Sri Lanka', fact: 'The lion holds a kastane, a traditional Sri Lankan sword. Four leaves of the sacred bo tree sit around it.' },
-      { flag: 'myanmar', a: 'Myanmar', mark: '“Burma” also counts.', fact: 'This design was adopted in 2010. The colours stand for solidarity, peace and courage.' },
-      { flag: 'seychelles', a: 'Seychelles', fact: 'The five slanting bands are meant to show a young country moving boldly into the future.' },
-      { flag: 'mauritius', a: 'Mauritius', fact: 'The four stripes stand for the struggle for independence, the Indian Ocean, the light of freedom and the island’s farmland.' }
-    ]
-  },
-  {
-    title: 'Science & nature', icon: '🔬', kind: 'standard',
-    blurb: 'From the bones in your ears to the planets next door.',
-    scoring: '8 questions, 1 point each.',
-    questions: [
-      { icon: '🪐', q: 'Which planet in our solar system has a day that is longer than its year?', a: 'Venus', fact: 'One spin takes about 243 Earth days, but one orbit only about 225. It also spins backwards.' },
-      { icon: '🐙', q: 'How many hearts does an octopus have?', a: 'Three', fact: 'Two pump blood through the gills and one pumps it around the body. Their blood is blue.' },
-      { icon: '⚗️', q: 'What is the chemical symbol for tungsten?', a: 'W', say: 'W', fact: 'W comes from “wolfram”, its other name. Tungsten has the highest melting point of any metal.' },
-      { icon: '🌍', q: 'Which gas makes up most of Earth’s atmosphere?', a: 'Nitrogen', fact: 'Nitrogen is about 78% of the air. Oxygen is only about 21%.' },
-      { icon: '🐻‍❄️', q: 'What colour is a polar bear’s skin?', a: 'Black', fact: 'Black skin soaks up heat. The fur is not really white either: each hair is see-through.' },
-      { icon: '🌡️', q: 'At what temperature are Celsius and Fahrenheit exactly the same?', a: '−40°', say: 'minus forty degrees', mark: 'Must include the minus.', fact: 'It is the only point where the two scales meet: −40 °C is exactly −40 °F.' },
-      { icon: '🌺', q: 'Which is the only bird that can truly fly backwards?', a: 'The hummingbird', fact: 'Small hummingbirds can beat their wings up to about 80 times a second.' },
-      { icon: '🦴', q: 'What is the smallest bone in the human body?', a: 'The stapes', say: 'the stapes, or stirrup', mark: '“Stirrup” also counts.', fact: 'It sits in the middle ear and is only about 3 mm long.' }
-    ]
-  },
-  {
-    title: 'Music mix', icon: '🎧', kind: 'music',
-    blurb: 'Classical tunes played live, mixed with modern hits spelled out in emoji.',
-    scoring: '1 point for the title, plus 1 bonus point for the composer or artist.',
-    prompt: 'Name the song. Bonus point for the artist.',
-    questions: [
-      { tune: 0, a: 'The Can-Can', by: 'Jacques Offenbach', mark: '“Infernal Galop” or “Orpheus in the Underworld” also count.', fact: 'It is really the “Infernal Galop” from his 1858 operetta Orpheus in the Underworld.' },
-      { emoji: '🔺 🟦 ⭕ 👉', a: 'Shape of You', by: 'Ed Sheeran', year: '2017', hint: 'A 2017 hit from a British singer-songwriter', fact: 'It was the first song ever to pass 3 billion streams on Spotify.' },
-      { emoji: '🔒 🚪 ☁️ 😇', a: 'Locked Out of Heaven', by: 'Bruno Mars', year: '2012', hint: 'A 2012 hit with a reggae-rock groove', fact: 'It was the lead single from his second album, Unorthodox Jukebox.' },
-      { tune: 1, a: 'In the Hall of the Mountain King', by: 'Edvard Grieg', mark: '“Peer Gynt” counts for the title.', fact: 'Written for Ibsen’s play Peer Gynt. Grieg himself reportedly said it reeked of cow pats.' },
-      { emoji: '🚫 🦸', a: 'Anti-Hero', by: 'Taylor Swift', year: '2022', hint: 'A 2022 single from a record-breaking pop star', fact: 'It came from Midnights; that week she became the first artist to fill the entire US top 10 at once.' },
-      { emoji: '🌙 🔄', a: 'Night Changes', by: 'One Direction', year: '2014', hint: 'A 2014 boy-band ballad', fact: 'It was on Four, the last album the band made with Zayn Malik before he left in 2015.' },
-      { tune: 2, a: 'Toccata and Fugue in D minor', by: 'Johann Sebastian Bach', mark: '“Toccata” alone is fine.', fact: 'Some scholars doubt Bach actually wrote it, but it is still published under his name.' },
-      { emoji: '🪙 ⛏️', a: 'Gold Digger', by: 'Kanye West', year: '2005', hint: 'A 2005 rap hit featuring Jamie Foxx', mark: '“Kanye” or “Ye” earns the bonus.', fact: 'It samples Ray Charles. Guest star Jamie Foxx had just won an Oscar for playing Charles in the film Ray.' }
-    ]
-  },
-  {
-    title: 'Emoji cinema', icon: '🍿', kind: 'emoji',
-    blurb: 'Each line of emoji is a film. Say what you see.',
-    scoring: '8 films, 1 point each. The quizmaster may give hints.',
-    prompt: 'Name the film.',
-    questions: [
-      { emoji: '🦈 🏖️ 🚤', a: 'Jaws', year: '1975', hint: 'A 1975 thriller', fact: 'The mechanical shark kept breaking down, so Spielberg showed it far less, which made the film scarier.' },
-      { emoji: '🚢 🧊 💔', a: 'Titanic', year: '1997', hint: 'A 1997 romance', fact: 'It won 11 Oscars, tying the record set by Ben-Hur.' },
-      { emoji: '🚗 ⚡ ⏰ 🔙', a: 'Back to the Future', year: '1985', hint: 'A 1985 sci-fi comedy', fact: 'The DeLorean has to hit 88 miles per hour to travel through time.' },
-      { emoji: '🏃 🍫 📦 🪶', a: 'Forrest Gump', year: '1994', hint: 'A 1994 Best Picture winner', fact: 'Tom Hanks won Best Actor for it, a year after winning for Philadelphia.' },
-      { emoji: '💊 🐇 🕶️ 💻', a: 'The Matrix', year: '1999', hint: 'A 1999 sci-fi action film', fact: 'The falling green code was reportedly made from scanned sushi recipes.' },
-      { emoji: '🐀 👨‍🍳 🗼 🍲', a: 'Ratatouille', year: '2007', hint: 'A 2007 animated film', fact: 'The fancy version of the dish in the film was designed with the chef Thomas Keller.' },
-      { emoji: '🌽 👨‍🚀 🕳️ ⏳', a: 'Interstellar', year: '2014', hint: 'A 2014 space epic', fact: 'The production reportedly grew around 500 acres of real corn for the farm scenes.' },
-      { emoji: '🔪 🔪 📤', a: 'Knives Out', year: '2019', hint: 'A 2019 whodunit', fact: 'Daniel Craig plays the detective Benoit Blanc, who returned in later sequels.' }
-    ]
-  },
-  {
-    title: 'Missing vowels', icon: '🔠', kind: 'vowels',
-    blurb: 'We’ve taken out every vowel and moved the spaces around. You get the category; you find the answer.',
-    scoring: '8 puzzles, 1 point each.',
-    questions: [
-      { cat: 'Animals', clue: 'HPPP TMS', a: 'Hippopotamus', fact: 'The name comes from the Greek for “river horse”.' },
-      { cat: 'Capital cities', clue: 'CPNH GN', a: 'Copenhagen', fact: 'Its Danish name, København, means “merchants’ harbour”.' },
-      { cat: 'Pop stars', clue: 'BL LLSH', a: 'Billie Eilish', fact: 'She has won two Oscars for Best Original Song, both written with her brother Finneas.' },
-      { cat: 'Board games', clue: 'SNK SNDL DDRS', a: 'Snakes and Ladders', fact: 'It comes from an ancient Indian game, Moksha Patam, about virtue and vice.' },
-      { cat: 'TV shows', clue: 'GM FTH RNS', a: 'Game of Thrones', fact: 'It was based on George R. R. Martin’s book series A Song of Ice and Fire.' },
-      { cat: 'Landmarks', clue: 'STTF LBR TY', a: 'Statue of Liberty', fact: 'A gift from France, dedicated in 1886. Its copper skin is about as thick as two coins.' },
-      { cat: 'Food', clue: 'SPGH TTBLG NS', a: 'Spaghetti Bolognese', fact: 'In Bologna itself, the meat sauce is traditionally served with tagliatelle, not spaghetti.' },
-      { cat: 'Fictional characters', clue: 'HRM NGRN GR', a: 'Hermione Granger', fact: 'Emma Watson played her in all eight Harry Potter films.' }
-    ]
-  },
-  {
-    title: 'Which came first?', icon: '⏳', kind: 'versus',
-    blurb: 'Two moments in history, one question: which happened first? Just write A or B.',
-    scoring: '8 questions, 1 point each.',
-    questions: [
-      { A: { icon: '📺', text: 'YouTube launches', date: '2005' }, B: { icon: '📱', text: 'The first iPhone goes on sale', date: '2007' }, first: 'a', fact: 'The first YouTube video, a 19-second clip filmed at San Diego Zoo, went up in April 2005.' },
-      { A: { icon: '✊', text: 'Nelson Mandela is released from prison', date: 'Feb 1990' }, B: { icon: '🧱', text: 'The Berlin Wall falls', date: 'Nov 1989' }, first: 'b', fact: 'Only three months apart: the Wall opened on 9 November 1989, and Mandela walked free on 11 February 1990.' },
-      { A: { icon: '🔭', text: 'Pluto is discovered', date: '1930' }, B: { icon: '🍞', text: 'Sliced bread goes on sale', date: '1928' }, first: 'b', fact: 'Sliced bread was first sold in Chillicothe, Missouri, in July 1928. Pluto was spotted in February 1930.' },
-      { A: { icon: '📠', text: 'A fax machine is patented', date: '1843' }, B: { icon: '⚔️', text: 'The American Civil War begins', date: '1861' }, first: 'a', fact: 'The Scottish inventor Alexander Bain patented an early fax machine in 1843.' },
-      { A: { icon: '🚢', text: 'The Titanic sinks', date: 'Apr 1912' }, B: { icon: '🍪', text: 'Oreo cookies go on sale', date: 'Mar 1912' }, first: 'b', fact: 'Oreos launched in March 1912, a few weeks before the Titanic sank on 15 April.' },
-      { A: { icon: '🗼', text: 'The Eiffel Tower opens', date: 'Mar 1889' }, B: { icon: '🎮', text: 'Nintendo is founded', date: 'Sep 1889' }, first: 'a', fact: 'Same year! Nintendo started that September, making playing cards, not video games.' },
-      { A: { icon: '🎓', text: 'Teaching begins at Oxford University', date: '1096' }, B: { icon: '🏯', text: 'The Aztecs found their capital, Tenochtitlan', date: '1325' }, first: 'a', fact: 'Oxford says teaching there goes back to at least 1096, over two centuries before Tenochtitlan (now Mexico City) was founded.' },
-      { A: { icon: '🦣', text: 'The last woolly mammoths die out', date: 'c. 2000 BC' }, B: { icon: '🔺', text: 'The Great Pyramid of Giza is finished', date: 'c. 2560 BC' }, first: 'b', fact: 'Woolly mammoths survived on Russia’s Wrangel Island until about 4,000 years ago, long after the pyramid was built.' }
-    ]
-  }
-];
-
-const TIEBREAKERS = [
-  { icon: '💀', q: 'How many bones are in the adult human body?', a: '206', say: 'two hundred and six', fact: 'Babies are born with around 300; many fuse together as we grow.' },
-  { icon: '🌕', q: 'On average, how far is the Moon from Earth, in kilometres?', a: '384,400 km', say: 'about three hundred and eighty four thousand kilometres', fact: 'The Moon drifts about 3.8 cm further away every year.' },
-  { icon: '🖼️', q: 'In what year was the Mona Lisa stolen from the Louvre?', a: '1911', say: 'nineteen eleven', fact: 'It was missing for over two years before turning up in Florence in 1913.' }
-];
-
-const RULES = [
-  { icon: '👥', text: 'Teams of up to six. Pick a team name, the sillier the better.' },
-  { icon: '📵', text: 'Phones away. No searching and no texting your clever cousin.' },
-  { icon: '📝', text: 'Write every answer down. A guess can score; a blank never does.' },
-  { icon: '🃏', text: 'Each team has one joker that doubles its points for one round. Play it before that round starts.' },
-  { icon: '✅', text: 'Spelling doesn’t count, as long as the answer is clearly right.' },
-  { icon: '🎤', text: 'The quizmaster’s decision is final. Bribes are welcome, though.' }
-];
-
+// The quiz comes from server.js, which validates quizzes/*.json and injects it here.
+window.QUIZ = /*QUIZ_JSON*/null;
+</script>
+<script>
+const QUIZ = window.QUIZ || { title: 'Trivvoly', rules: [], rounds: [], tiebreakers: [], tunes: [], halftimeAfter: -1 };
+const FLAGS = window.TRIVVOLY_FLAGS || {};
+const HALFTIME_AFTER = QUIZ.halftimeAfter;
+const TUNES = QUIZ.tunes;
+const ROUNDS = QUIZ.rounds;
+const TIEBREAKERS = QUIZ.tiebreakers;
+const RULES = QUIZ.rules;
 </script>
 <script>
 (function () {
 'use strict';
+if (!window.QUIZ) {
+  document.body.innerHTML = '<p style="max-width:560px;margin:15vh auto;padding:0 20px;font:20px/1.5 system-ui;color:#FFF6E0">Start Trivvoly with <code>node server.js</code> and open the Host link it prints.</p>';
+  return;
+}
 
 const W = 1600, H = 900, STORE_KEY = 'trivia-night-v1';
 const reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -602,7 +464,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const settings = { quizName: 'Trivia Night', seconds: 45, breakMinutes: 10, autoRead: false, autoTimer: false, volume: 0.7, muted: false };
+const settings = { quizName: QUIZ.title, seconds: 45, breakMinutes: 10, autoRead: false, autoTimer: false, volume: 0.7, muted: false };
 let teams = [];
 const S = { i: 0, revealed: false, hint: false, rolling: false, token: 0 };
 
@@ -616,7 +478,7 @@ ROUNDS.forEach((r, ri) => {
   SLIDES.push({ type: 'standings', r: ri });
   if (ri === HALFTIME_AFTER) SLIDES.push({ type: 'halftime' });
 });
-SLIDES.push({ type: 'tbIntro' });
+if (TIEBREAKERS.length) SLIDES.push({ type: 'tbIntro' });
 TIEBREAKERS.forEach((_, ti) => SLIDES.push({ type: 'tb', t: ti }));
 SLIDES.push({ type: 'winner' }, { type: 'end' });
 const TOTAL_Q = ROUNDS.reduce((n, r) => n + r.questions.length, 0);
@@ -1060,7 +922,7 @@ function recordHTML(n) {
   const bars = Array.from({ length: 12 }, (_, k) => `<i style="animation-delay:${(-k * 0.13).toFixed(2)}s;animation-duration:${(0.5 + ((k * 37) % 5) * 0.12).toFixed(2)}s"></i>`).join('');
   return `<div class="record-wrap"><div class="record"><div class="record-label">${n}</div></div><div class="sheen"></div></div><div class="eq" aria-hidden="true">${bars}</div>`;
 }
-function emojiRow(str) { return `<div class="emoji-clue" role="img" aria-label="Emoji clue" data-fit="56">${str.split(/\s+/).map(e => `<span>${e}</span>`).join('')}</div>`; }
+function emojiRow(str) { return `<div class="emoji-clue" role="img" aria-label="Emoji clue" data-fit="56">${str.split(/\s+/).map(e => `<span>${esc(e)}</span>`).join('')}</div>`; }
 function hintChip(q) { return q.hint ? `<div class="hint${S.hint ? ' show' : ''}">Hint: ${esc(q.hint)}</div>` : ''; }
 function questionSlide(s) {
   const r = ROUNDS[s.r], q = r.questions[s.q], ans = s.type === 'answer', n = s.q + 1;
@@ -1081,7 +943,7 @@ function questionSlide(s) {
       ${ans ? plate(q.a, '', q.fact, q.mark) : '<p class="q-prompt">Put the vowels back to find the answer.</p>'}</div>`;
   }
   if (r.kind === 'versus') {
-    const card = (k, o) => `<div class="vs-card${q.first === k ? ' win' : ''}"><span class="vs-letter">${k.toUpperCase()}</span><span class="vs-icon" aria-hidden="true">${o.icon}</span><p class="vs-text">${esc(o.text)}</p><span class="vs-date">${esc(o.date)}</span></div>`;
+    const card = (k, o) => `<div class="vs-card${q.first === k ? ' win' : ''}"><span class="vs-letter">${k.toUpperCase()}</span><span class="vs-icon" aria-hidden="true">${esc(o.icon)}</span><p class="vs-text">${esc(o.text)}</p><span class="vs-date">${esc(o.date)}</span></div>`;
     return `<div class="vs-wrap"><p class="q-prompt">Which came first? Write A or B.</p>
       <div class="vs${S.revealed ? ' is-revealed' : ''}">${card('a', q.A)}<div class="vs-or">or</div>${card('b', q.B)}</div>
       ${ans ? `<div class="after-reveal">${q.fact ? `<p class="fact">${esc(q.fact)}</p>` : ''}</div>` : ''}</div>`;
@@ -1092,7 +954,7 @@ function questionSlide(s) {
     return `<div class="q-stack" data-fitbox>${emojiRow(q.emoji)}${text}
       ${ans ? plate(q.a, sub, q.fact, q.mark) : (q.q ? '' : `<p class="q-prompt">${esc(r.prompt || '')}</p>`) + hintChip(q)}</div>`;
   }
-  return `<div class="q-grid"><div class="q-visual"><div class="medallion" aria-hidden="true">${q.icon}</div></div>
+  return `<div class="q-grid"><div class="q-visual"><div class="medallion" aria-hidden="true">${esc(q.icon)}</div></div>
     <div class="q-main" data-fitbox><p class="q-text" data-fit="34">${esc(q.q)}</p>${ans ? plate(q.a, '', q.fact, q.mark) : ''}</div></div>`;
 }
 function standingsHTML(ri) {
@@ -1121,11 +983,11 @@ function buildSlide(s) {
         <p class="lede">${RC} rounds, ${TOTAL_Q} questions, one winning team.</p>
         ${Live.on ? Live.joinCard() : '<p class="press">Press space or tap Next to begin</p>'}</div>`;
     case 'rules':
-      return `<div class="rules-wrap"><h2 class="display-md">How tonight works</h2><ul class="rules">${Live.rules(RULES).map(x => `<li class="rule"><span class="ico" aria-hidden="true">${x.icon}</span><span>${esc(x.text)}</span></li>`).join('')}</ul></div>`;
+      return `<div class="rules-wrap"><h2 class="display-md">How tonight works</h2><ul class="rules">${Live.rules(RULES).map(x => `<li class="rule"><span class="ico" aria-hidden="true">${esc(x.icon)}</span><span>${esc(x.text)}</span></li>`).join('')}</ul></div>`;
     case 'round': {
       const r = ROUNDS[s.r];
       return `<div class="round-intro"><div class="ri-num"><span class="ri-word">Round</span><span class="ri-digit">${s.r + 1}</span></div>
-        <div><div class="ri-icon" aria-hidden="true">${r.icon}</div><h2 class="ri-title">${esc(r.title)}</h2>
+        <div><div class="ri-icon" aria-hidden="true">${esc(r.icon)}</div><h2 class="ri-title">${esc(r.title)}</h2>
         <p class="ri-blurb">${esc(r.blurb)}</p><p class="ri-scoring">${esc(r.scoring)}</p>
         <div class="ri-joker"><span aria-hidden="true">🃏</span><span>${Live.on ? 'Playing your joker on this round? Tap it on your phone now.' : 'Playing your joker on this round? Tell the quizmaster now.'}</span></div></div></div>`;
     }
@@ -1146,7 +1008,7 @@ function buildSlide(s) {
         <div class="row-btns"><button class="pill-btn ghost" data-act="skip-winner">Skip to the winner</button></div></div>`;
     case 'tb': {
       const t = TIEBREAKERS[s.t];
-      return `<div class="q-grid"><div class="q-visual"><div class="medallion" aria-hidden="true">${t.icon}</div></div>
+      return `<div class="q-grid"><div class="q-visual"><div class="medallion" aria-hidden="true">${esc(t.icon)}</div></div>
         <div class="q-main" data-fitbox><p class="q-text" data-fit="34">${esc(t.q)}</p><p class="q-prompt">Closest answer wins.</p>${plate(t.a, '', t.fact, '')}</div></div>`;
     }
     case 'winner': return winnerHTML();
@@ -1409,7 +1271,8 @@ function jumpTargets() {
     out.push([`Round ${k + 1} answers`, findSlide(x => x.type === 'swap' && x.r === k)]);
     if (k === HALFTIME_AFTER) out.push(['Half-time', findSlide(x => x.type === 'halftime')]);
   });
-  out.push(['Tiebreaker', findSlide(x => x.type === 'tbIntro')], ['Winner', findSlide(x => x.type === 'winner')]);
+  if (TIEBREAKERS.length) out.push(['Tiebreaker', findSlide(x => x.type === 'tbIntro')]);
+  out.push(['Winner', findSlide(x => x.type === 'winner')]);
   return out;
 }
 function openMenu() {
@@ -1421,7 +1284,7 @@ function openMenu() {
   openModal('menu-modal');
 }
 $('#jump-grid').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; closeModals(true); if (document.activeElement) document.activeElement.blur(); SFX.ensure(); go(+b.dataset.jump, 1); });
-$('#set-name').addEventListener('input', e => { settings.quizName = e.target.value.trim().slice(0, 40) || 'Trivia Night'; save(); });
+$('#set-name').addEventListener('input', e => { settings.quizName = e.target.value.trim().slice(0, 40) || QUIZ.title; save(); });
 $('#set-seconds').addEventListener('change', e => {
   settings.seconds = Math.min(180, Math.max(10, Math.round(+e.target.value || 45))); e.target.value = settings.seconds;
   if (isTimed(SLIDES[S.i]) && !T.running && T.left >= T.total) T.setup(settings.seconds, 'q');
@@ -1691,7 +1554,7 @@ const Live = {
     else if (name === 'breakMinutes') settings.breakMinutes = Math.round(clamp(v, 1, 30, 10));
     else if (name === 'autoRead' || name === 'autoTimer') settings[name] = !!v;
     else if (name === 'volume') { settings.volume = clamp(v, 0, 1, 0.7); SFX.ensure(); SFX.applyVolume(); }
-    else if (name === 'quizName') { settings.quizName = String(v || '').trim().slice(0, 40) || 'Trivia Night'; save(); const ty = SLIDES[S.i].type; if (ty === 'title' || ty === 'end') render(1, { quiet: true }); }
+    else if (name === 'quizName') { settings.quizName = String(v || '').trim().slice(0, 40) || QUIZ.title; save(); const ty = SLIDES[S.i].type; if (ty === 'title' || ty === 'end') render(1, { quiet: true }); }
     if (!$('#menu-modal').hidden) openMenu();
   },
   initStartShow() {

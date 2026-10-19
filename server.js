@@ -4,11 +4,46 @@
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
 
 const PORT = +process.env.PORT || 3000;
-const STATE_FILE = path.join(__dirname, 'trivia-state.json');
-const HOST_FILE = path.join(__dirname, 'trivia-night.html');
-const PLAYER_FILE = path.join(__dirname, 'player.html');
-const REMOTE_FILE = path.join(__dirname, 'remote.html');
+const STATE_FILE = process.env.TRIVVOLY_STATE || path.join(__dirname, 'trivia-state.json');
+const PUBLIC = path.join(__dirname, 'public');
+const HOST_FILE = path.join(PUBLIC, 'show.html');
+const PLAYER_FILE = path.join(PUBLIC, 'play.html');
+const REMOTE_FILE = path.join(PUBLIC, 'remote.html');
+const SHARED = { '/shared/flags.js': path.join(__dirname, 'shared', 'flags.js'), '/shared/quiz-format.js': path.join(__dirname, 'shared', 'quiz-format.js') };
 const MAX_TEAMS = 40;
+const MAX_QUIZ_BYTES = 500 * 1024;
+
+/* ---------- The quiz: a validated data file (node server.js --quiz path/to/quiz.json) ---------- */
+const { validateQuiz } = require('./shared/quiz-format.js');
+const FLAGS = require('./shared/flags.js');
+function argValue(name) {
+  const i = process.argv.findIndex(a => a === name || a.startsWith(name + '='));
+  if (i < 0) return null;
+  const a = process.argv[i];
+  return a.includes('=') ? a.slice(a.indexOf('=') + 1) : process.argv[i + 1] || null;
+}
+function loadQuiz(file) {
+  let text;
+  try {
+    if (fs.statSync(file).size > MAX_QUIZ_BYTES) throw new Error(`it is bigger than ${MAX_QUIZ_BYTES / 1024} KB`);
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) { return { errors: [`Can't read ${file}: ${e.message}`] }; }
+  let data;
+  try { data = JSON.parse(text.replace(/^\uFEFF/, '')); } catch (e) { return { errors: [`${file} isn't valid JSON: ${e.message}`] }; }
+  const r = validateQuiz(data, { flags: FLAGS });
+  return r.ok ? { quiz: r.quiz } : { errors: r.errors.map(e => `${path.basename(file)}: ${e}`) };
+}
+const QUIZ_FILE = path.resolve(argValue('--quiz') || path.join(__dirname, 'quizzes', 'classic.json'));
+const loaded = loadQuiz(QUIZ_FILE);
+if (loaded.errors) {
+  console.error('\n  This quiz file has problems:\n');
+  for (const e of loaded.errors) console.error('   - ' + e);
+  console.error('');
+  process.exit(1);
+}
+const QUIZ = loaded.quiz;
+// Safe to drop inside a <script> tag: no "</script>", no line-separator characters
+const QUIZ_SCRIPT = JSON.stringify(QUIZ).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 const rid = n => crypto.randomBytes(n).toString('hex');
 // teams: id -> {id, name, token}; answers/marks/src/disputes: qk -> {teamId -> ...}; keys: qk -> revealed answer;
@@ -100,12 +135,17 @@ function body(req) {
   });
 }
 function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
-function file(res, f) {
-  fs.readFile(f, (err, buf) => {
+// Pages carry secrets in their URL (?key=...), so never leak it as a referrer and never allow framing
+const SECURITY_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' };
+function file(res, f, transform) {
+  fs.readFile(f, 'utf8', (err, body) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(buf);
+    const type = f.endsWith('.js') ? 'application/javascript; charset=utf-8' : 'text/html; charset=utf-8';
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store', ...SECURITY_HEADERS });
+    res.end(transform ? transform(body) : body);
   });
 }
+const withQuiz = html => html.replace('/*QUIZ_JSON*/null', () => QUIZ_SCRIPT);
 const byToken = tok => Object.values(st.teams).find(t => t.token === tok && tok);
 const cleanName = s => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 // Real Wi-Fi/Ethernet first; VPN-style networks (Tailscale, ZeroTier) last; virtual machine adapters skipped
@@ -129,7 +169,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       if (p === '/' || p === '/play') return file(res, PLAYER_FILE);
       // The host page contains every answer, so it is only served with the key
-      if (p === '/host') return url.searchParams.get('key') === st.key ? file(res, HOST_FILE) : (res.writeHead(403), res.end('Wrong or missing host key.'));
+      if (SHARED[p]) return file(res, SHARED[p]);
+      if (p === '/host') return url.searchParams.get('key') === st.key ? file(res, HOST_FILE, withQuiz) : (res.writeHead(403), res.end('Wrong or missing host key.'));
       if (p === '/remote') return url.searchParams.get('key') === st.key ? file(res, REMOTE_FILE) : (res.writeHead(403), res.end('Wrong or missing host key.'));
       if (p === '/events') {
         const role = url.searchParams.get('role');
@@ -153,7 +194,7 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
-      if (p === '/api/info') return json(res, 200, { quizName: st.slide?.quizName || 'Trivia Night' });
+      if (p === '/api/info') return json(res, 200, { quizName: st.slide?.quizName || QUIZ.title });
       res.writeHead(404); return res.end('Not found');
     }
 
@@ -286,6 +327,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   const nets = networks();
   console.log('\n  Trivvoly is live!\n');
+  console.log(`  Quiz: ${QUIZ.title} (${path.relative(process.cwd(), QUIZ_FILE) || QUIZ_FILE}, ${QUIZ.rounds.length} rounds)\n`);
   console.log(`  Host (open on THIS computer):  http://localhost:${PORT}/host?key=${st.key}`);
   console.log('  Players (phones on the same Wi-Fi):');
   for (const n of nets.filter(n => !n.vpn)) console.log(`     ${n.url}   (${n.name})`);
