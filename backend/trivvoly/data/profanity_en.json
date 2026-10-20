@@ -1,0 +1,550 @@
+{
+ "source": "English dataset from obscenity 0.4.6 (https://github.com/jo3-l/obscenity), exported to regular expressions",
+ "license": "# The MIT License (MIT)\n\nCopyright © 2025 Joseph Liu.\n\nPermission is hereby granted, free of charge, to any person\nobtaining a copy of this software and associated documentation\nfiles (the “Software”), to deal in the Software without\nrestriction, including without limitation the rights to use,\ncopy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the\nSoftware is furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES\nOF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND\nNONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT\nHOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nWHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR\nOTHER DEALINGS IN THE SOFTWARE.\n",
+ "blacklist": [
+  {
+   "id": 0,
+   "regex": "(?<![a-z])ab(?:b)?o(?:s)?(?![a-z])"
+  },
+  {
+   "id": 1,
+   "regex": "ab(?:b)?eed"
+  },
+  {
+   "id": 2,
+   "regex": "africoon"
+  },
+  {
+   "id": 3,
+   "regex": "(?<![a-z])anal"
+  },
+  {
+   "id": 4,
+   "regex": "danal"
+  },
+  {
+   "id": 5,
+   "regex": "eanal"
+  },
+  {
+   "id": 6,
+   "regex": "fanal"
+  },
+  {
+   "id": 7,
+   "regex": "ganal"
+  },
+  {
+   "id": 8,
+   "regex": "ianal"
+  },
+  {
+   "id": 9,
+   "regex": "janal"
+  },
+  {
+   "id": 10,
+   "regex": "kanal"
+  },
+  {
+   "id": 11,
+   "regex": "lanal"
+  },
+  {
+   "id": 12,
+   "regex": "lanal"
+  },
+  {
+   "id": 13,
+   "regex": "oanal(?![a-z])"
+  },
+  {
+   "id": 14,
+   "regex": "panal"
+  },
+  {
+   "id": 15,
+   "regex": "qanal"
+  },
+  {
+   "id": 16,
+   "regex": "ranal"
+  },
+  {
+   "id": 17,
+   "regex": "sanal"
+  },
+  {
+   "id": 18,
+   "regex": "tanal"
+  },
+  {
+   "id": 19,
+   "regex": "uanal"
+  },
+  {
+   "id": 20,
+   "regex": "vanal"
+  },
+  {
+   "id": 21,
+   "regex": "wanal"
+  },
+  {
+   "id": 22,
+   "regex": "xanal"
+  },
+  {
+   "id": 23,
+   "regex": "yanal"
+  },
+  {
+   "id": 24,
+   "regex": "zanal"
+  },
+  {
+   "id": 25,
+   "regex": "anus"
+  },
+  {
+   "id": 26,
+   "regex": "arab(?:b)?ush"
+  },
+  {
+   "id": 27,
+   "regex": "(?<![a-z])ars(?:s)?e"
+  },
+  {
+   "id": 28,
+   "regex": "(?<![a-z])ass"
+  },
+  {
+   "id": 29,
+   "regex": "bas(?:s)?tard"
+  },
+  {
+   "id": 30,
+   "regex": "be(?:e)?(?:a)?s(?:s)?tial"
+  },
+  {
+   "id": 31,
+   "regex": "bitch"
+  },
+  {
+   "id": 32,
+   "regex": "bich(?![a-z])"
+  },
+  {
+   "id": 33,
+   "regex": "b(?:b)?l(?:l)?(?:o)?wj(?:o)?b"
+  },
+  {
+   "id": 34,
+   "regex": "bol(?:l)?ock"
+  },
+  {
+   "id": 35,
+   "regex": "boob"
+  },
+  {
+   "id": 36,
+   "regex": "boonga"
+  },
+  {
+   "id": 37,
+   "regex": "buttplug"
+  },
+  {
+   "id": 38,
+   "regex": "chingchong"
+  },
+  {
+   "id": 39,
+   "regex": "chink"
+  },
+  {
+   "id": 40,
+   "regex": "(?<![a-z])cock(?![a-z])"
+  },
+  {
+   "id": 41,
+   "regex": "(?<![a-z])cocks"
+  },
+  {
+   "id": 42,
+   "regex": "(?<![a-z])cockp"
+  },
+  {
+   "id": 43,
+   "regex": "(?<![a-z])cocke(?:e)?(?![a-z])"
+  },
+  {
+   "id": 44,
+   "regex": "cuck"
+  },
+  {
+   "id": 45,
+   "regex": "(?<![a-z])cum"
+  },
+  {
+   "id": 46,
+   "regex": "(?<![a-z])cunt"
+  },
+  {
+   "id": 47,
+   "regex": "cunt(?![a-z])"
+  },
+  {
+   "id": 48,
+   "regex": "deepthro(?:o)?at"
+  },
+  {
+   "id": 49,
+   "regex": "deepthro(?:o)?t"
+  },
+  {
+   "id": 50,
+   "regex": "(?<![a-z])dck(?![a-z])"
+  },
+  {
+   "id": 51,
+   "regex": "dick"
+  },
+  {
+   "id": 52,
+   "regex": "dildo"
+  },
+  {
+   "id": 53,
+   "regex": "d(?:o)?g(?:g)?ys(?:s)?t(?:y)?l(?:l)?"
+  },
+  {
+   "id": 54,
+   "regex": "double penetra"
+  },
+  {
+   "id": 55,
+   "regex": "dyke"
+  },
+  {
+   "id": 56,
+   "regex": "e(?:e)?jacul"
+  },
+  {
+   "id": 57,
+   "regex": "e(?:e)?jakul"
+  },
+  {
+   "id": 58,
+   "regex": "e(?:e)?acul(?:l)?ate"
+  },
+  {
+   "id": 59,
+   "regex": "(?<![a-z])fag"
+  },
+  {
+   "id": 60,
+   "regex": "fggot"
+  },
+  {
+   "id": 61,
+   "regex": "fe(?:e)?l(?:l)?ch"
+  },
+  {
+   "id": 62,
+   "regex": "f(?:e)?(?:e)?llat"
+  },
+  {
+   "id": 63,
+   "regex": "fingerbang"
+  },
+  {
+   "id": 64,
+   "regex": "fistin"
+  },
+  {
+   "id": 65,
+   "regex": "f(?:.)?ck"
+  },
+  {
+   "id": 66,
+   "regex": "(?<![a-z])fk"
+  },
+  {
+   "id": 67,
+   "regex": "(?<![a-z])fu(?![a-z])"
+  },
+  {
+   "id": 68,
+   "regex": "(?<![a-z])fuk"
+  },
+  {
+   "id": 69,
+   "regex": "g(?:.)?ngbang"
+  },
+  {
+   "id": 70,
+   "regex": "h(?:.)?ndjob"
+  },
+  {
+   "id": 71,
+   "regex": "h(?:e)?(?:e)?ntai"
+  },
+  {
+   "id": 72,
+   "regex": "hooker"
+  },
+  {
+   "id": 73,
+   "regex": "incest"
+  },
+  {
+   "id": 74,
+   "regex": "jerkoff"
+  },
+  {
+   "id": 75,
+   "regex": "jizz"
+  },
+  {
+   "id": 76,
+   "regex": "kike"
+  },
+  {
+   "id": 77,
+   "regex": "lubejob"
+  },
+  {
+   "id": 78,
+   "regex": "m(?:.)?sturbate"
+  },
+  {
+   "id": 79,
+   "regex": "masterbate"
+  },
+  {
+   "id": 80,
+   "regex": "negro"
+  },
+  {
+   "id": 81,
+   "regex": "n(?:i)?gger"
+  },
+  {
+   "id": 82,
+   "regex": "n(?:i)?gga"
+  },
+  {
+   "id": 83,
+   "regex": "(?<![a-z])nig(?![a-z])"
+  },
+  {
+   "id": 84,
+   "regex": "(?<![a-z])nigs(?![a-z])"
+  },
+  {
+   "id": 85,
+   "regex": "(?:or)?gasm"
+  },
+  {
+   "id": 86,
+   "regex": "orgy"
+  },
+  {
+   "id": 87,
+   "regex": "orgies"
+  },
+  {
+   "id": 88,
+   "regex": "pe(?:e)?nis"
+  },
+  {
+   "id": 89,
+   "regex": "(?<![a-z])pnis"
+  },
+  {
+   "id": 90,
+   "regex": "(?<![a-z])piss"
+  },
+  {
+   "id": 91,
+   "regex": "(?<![a-z])prn(?![a-z])"
+  },
+  {
+   "id": 92,
+   "regex": "porn"
+  },
+  {
+   "id": 93,
+   "regex": "(?<![a-z])prick(?:s)?(?![a-z])"
+  },
+  {
+   "id": 94,
+   "regex": "p(?:u)?ssy"
+  },
+  {
+   "id": 95,
+   "regex": "(?<![a-z])rape"
+  },
+  {
+   "id": 96,
+   "regex": "(?<![a-z])rapis(?:s)?t"
+  },
+  {
+   "id": 97,
+   "regex": "retard"
+  },
+  {
+   "id": 98,
+   "regex": "(?<![a-z])s(?:s)?cat(?![a-z])"
+  },
+  {
+   "id": 99,
+   "regex": "(?<![a-z])s(?:s)?e(?:e)?me(?:e)?n"
+  },
+  {
+   "id": 100,
+   "regex": "(?<![a-z])s(?:s)?e(?:e)?x(?![a-z])"
+  },
+  {
+   "id": 101,
+   "regex": "(?<![a-z])s(?:s)?e(?:e)?xy(?![a-z])"
+  },
+  {
+   "id": 102,
+   "regex": "(?<![a-z])shit"
+  },
+  {
+   "id": 103,
+   "regex": "shit(?![a-z])"
+  },
+  {
+   "id": 104,
+   "regex": "s(?:s)?lut"
+  },
+  {
+   "id": 105,
+   "regex": "(?<![a-z])spastic"
+  },
+  {
+   "id": 106,
+   "regex": "(?<![a-z])tit(?![a-z])"
+  },
+  {
+   "id": 107,
+   "regex": "(?<![a-z])tits(?![a-z])"
+  },
+  {
+   "id": 108,
+   "regex": "(?<![a-z])titt"
+  },
+  {
+   "id": 109,
+   "regex": "(?<![a-z])tiddies"
+  },
+  {
+   "id": 110,
+   "regex": "(?<![a-z])tities"
+  },
+  {
+   "id": 111,
+   "regex": "(?<![a-z])trany"
+  },
+  {
+   "id": 112,
+   "regex": "(?<![a-z])turd"
+  },
+  {
+   "id": 113,
+   "regex": "(?<![a-z])twat"
+  },
+  {
+   "id": 114,
+   "regex": "vagina"
+  },
+  {
+   "id": 115,
+   "regex": "(?<![a-z])v(?:.)?gina"
+  },
+  {
+   "id": 116,
+   "regex": "(?<![a-z])wank"
+  },
+  {
+   "id": 117,
+   "regex": "(?<![a-z])wh(?:o)?re(?![a-z])"
+  },
+  {
+   "id": 118,
+   "regex": "(?<![a-z])who(?:o)?res(?:s)?(?![a-z])"
+  }
+ ],
+ "whitelist": [
+  "analabos",
+  "analagous",
+  "analav",
+  "analy",
+  "analog",
+  "an al",
+  "fan al",
+  "gan al",
+  "ian al",
+  "trojan al",
+  "lan al",
+  "lan al",
+  "pan al",
+  "tan al",
+  "uan al",
+  "van al",
+  "texan al",
+  "an us",
+  "tetanus",
+  "uranus",
+  "janus",
+  "manus",
+  "arsen",
+  "45s",
+  "assa",
+  "assem",
+  "assen",
+  "asser",
+  "assess",
+  "asset",
+  "assev",
+  "assi",
+  "assoc",
+  "assoi",
+  "assu",
+  "baboon ga",
+  "chin k",
+  "cockney",
+  "cuckoo",
+  "cumu",
+  "cumb",
+  "benedick",
+  "dickens",
+  "dickety",
+  "dickory",
+  "van dyke",
+  "fick",
+  "kung-fu",
+  "kung fu",
+  "montenegro",
+  "negron",
+  "stoneground",
+  "winegrow",
+  "snigger",
+  "gasma",
+  "porgy",
+  "pen is",
+  "p orna",
+  "rapper",
+  "s hit",
+  "sh it",
+  "shi t",
+  "shitake",
+  "turducken",
+  "twattle",
+  "who're"
+ ]
+}
