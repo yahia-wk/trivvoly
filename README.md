@@ -4,15 +4,9 @@
 
 A pub-quiz show for a TV or projector, with phones for the teams and a phone remote for the quizmaster: free-text answers, jokers, teams marking each other's answers, and disputes ruled on the big screen. Many games can run at once, each in its own room.
 
-## Run it
+## Play it
 
-Needs [Node.js](https://nodejs.org) 20 or newer.
-
-```
-npm install          # first time only (start-trivia.bat does this for you)
-npm start            # or double-click start-trivia.bat
-npm test             # run the tests
-```
+**Windows:** double-click `start-trivia.bat`. The first run sets everything up (needs [Python](https://www.python.org) 3.12+ and [Node.js](https://nodejs.org) 20+).
 
 Then:
 
@@ -20,54 +14,62 @@ Then:
 2. **Teams** scan the QR code on the title screen, or open the address shown and enter the room code. One phone per team.
 3. **You** can run everything from your own phone: Menu on the TV shows a QR code for the remote. Keep that one to yourself; it shows the answers.
 
-Allow Node.js through the Windows firewall on private networks the first time, or phones can't connect.
-
-`node server.js --reset` clears all saved games. `node server.js --quiz path/to/quiz.json` adds a quiz from somewhere else to the list.
+Allow Python through the Windows firewall on private networks the first time, or phones can't connect.
 
 ## How a round works
 
-Questions → **Pens down** (answers lock, teams are paired up to mark each other) → answer slides: each reveal lets the paired team mark ✓/✗ on their phone → the marked team can dispute → the quizmaster rules on the big screen. Marks fill in the scores automatically.
+Questions → **Pens down** (answers lock, teams are paired up to mark each other) → answer slides: each reveal lets the paired team mark ✓/✗ on their phone → the marked team can dispute → the quizmaster rules on the big screen. Marks fill in the scores automatically. Teams without phones can be added as paper teams and scored by hand.
 
 ## Write your own quiz
 
 Quizzes are JSON files. Copy [`quizzes/classic.json`](quizzes/classic.json), change the questions, and either drop it into `quizzes/` (it appears in the list) or upload it on the start page. Every quiz is checked; if something is wrong you get a list of exactly what and where. A broken file in `quizzes/` is skipped with a warning, never fatal.
 
-Round kinds: `standard` (question + answer), `flag` (a built-in flag, or emoji + question), `music` (a tune played live, or emoji clues; bonus point for the artist), `emoji`, `vowels` (missing-vowels puzzles) and `versus` (which came first, A or B). See [docs/ROADMAP.md](docs/ROADMAP.md#quiz-file-format-phase-0) for the format and [`shared/quiz-format.js`](shared/quiz-format.js) for every rule and limit.
+Round kinds: `standard` (question + answer), `flag` (a built-in flag, or emoji + question), `music` (a tune played live, or emoji clues; bonus point for the artist), `emoji`, `vowels` (missing-vowels puzzles) and `versus` (which came first, A or B). The rules and limits are in [`backend/trivvoly/quiz.py`](backend/trivvoly/quiz.py).
+
+## Develop
+
+```
+# Backend (Python + FastAPI)
+cd backend
+python -m venv .venv
+.venv\Scripts\pip install -e ".[dev]"      # macOS/Linux: .venv/bin/pip
+.venv\Scripts\python -m pytest              # tests
+.venv\Scripts\python -m trivvoly            # server on :3000 (--reset clears saved games)
+
+# Frontend (React + TypeScript + Vite), in a second terminal
+cd frontend
+npm install
+npm run dev          # http://localhost:5173, forwards /api to the server on :3000
+npm run typecheck
+npm run build        # into frontend/dist, which the server then serves on :3000
+npm run gen:types    # after changing backend/trivvoly/quiz.py
+```
+
+### How it fits together
+
+- **The server owns every game.** Each room's state (slide, timer, reveals, answers, marks, disputes, scores) lives in [`backend/trivvoly/game.py`](backend/trivvoly/game.py). The TV, the team phones and the quizmaster's remote each hold one WebSocket, send commands, and draw the view the server sends them. Teams only ever receive public information.
+- **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms saved with SQLAlchemy), `app.py` + `security.py` (REST, WebSockets, protections).
+- **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels). Shared code is in `lib/`; quiz types are generated from the backend into `lib/quiz.gen.ts`.
+- **Styling:** the existing screens use plain CSS scoped per screen on shared tokens (`styles/tokens.css`); Tailwind utilities are available for new screens.
 
 ## Hosting it online
 
-Trivvoly runs as one Node process; a [Dockerfile](Dockerfile) is included. Run it behind your provider's HTTPS and set:
+The [Dockerfile](Dockerfile) builds the screens and runs the server in one container. Run it behind your provider's HTTPS and set:
 
 | Variable | What it does |
 | --- | --- |
 | `PORT` | Port to listen on (default 3000). |
 | `PUBLIC_URL` | The site's address, e.g. `https://trivvoly.com`. Used for join links and QR codes. |
 | `TRUST_PROXY=1` | Behind exactly one proxy/load balancer (the usual hosting setup): take the client address from the last `X-Forwarded-For` entry and HTTPS from `X-Forwarded-Proto` (set in the Dockerfile). Don't set it when the server is reachable directly, or clients could fake their address. |
-| `NODE_ENV=production` | Cache pages in memory (set in the Dockerfile). |
-| `TRIVVOLY_STATE` | Where running games are saved so a restart doesn't end them. Point it at a persistent volume. |
+| `DATABASE_URL` | Where running games are saved (default: a SQLite file; the Dockerfile uses `/data/trivvoly.db`, so mount a volume at `/data`). |
 | `TRIVVOLY_MAX_ROOMS`, `TRIVVOLY_MAX_ROOMS_PER_IP` | Capacity limits (defaults 300 and 5). |
 
 `GET /healthz` answers `ok` for health checks.
 
 ## Safety
 
-Built for strangers on the internet: quizzes are validated data, every piece of text is escaped, quizmaster secrets travel in the link's `#` part and become HttpOnly cookies scoped to one room, team logins are cookies too, pages send a strict Content-Security-Policy, requests are size- and rate-limited, team names and dispute reasons are filtered for offensive words, and rooms (with all their data) expire after a few hours or when the quizmaster ends the game. See [docs/ROADMAP.md](docs/ROADMAP.md#safety-applies-from-phase-1-onwards-designed-in-from-phase-0).
+Built for strangers on the internet: quizzes are validated data and every piece of text is escaped; quizmaster secrets travel in the link's `#` part and become HttpOnly cookies scoped to one room, and are stored only as hashes (team logins too); every WebSocket's origin is checked; pages send a strict Content-Security-Policy; requests and messages are size- and rate-limited; team names and dispute reasons are filtered for offensive words; rooms (with all their data) expire after a few hours or when the quizmaster ends the game. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Files
+## Credits
 
-| Path | What it is |
-| --- | --- |
-| `server.js` | Routes: start page, rooms, pages, live updates (Server-Sent Events). |
-| `lib/game.js` | One game: teams, answers, peer marking, disputes. Checks everything browsers send. |
-| `lib/rooms.js` | Rooms: codes, quizmaster keys, expiry, saving. |
-| `lib/http.js` | Body limits, cookies, security headers, rate limits. |
-| `lib/quizzes.js` | Loads built-in quizzes and checks uploads. |
-| `lib/moderation.js` | Offensive-word filter for team names and dispute reasons. |
-| `public/index.html` | Start page: join with a code, or host a quiz. |
-| `public/show.html` | The show on the big screen. |
-| `public/play.html` | Team phone page. |
-| `public/remote.html` | Quizmaster phone remote. |
-| `public/claim.html` | Turns a quizmaster link into a login cookie. |
-| `quizzes/` | Built-in quizzes. |
-| `shared/` | Quiz format rules and the built-in flags, used by the server and the pages. |
-| `docs/ROADMAP.md` | The plan for taking Trivvoly online. |
+Offensive-word list from [obscenity](https://github.com/jo3-l/obscenity) (MIT), exported to [`backend/trivvoly/data/profanity_en.json`](backend/trivvoly/data/profanity_en.json).

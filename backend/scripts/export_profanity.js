@@ -1,5 +1,7 @@
 // Regenerates backend/trivvoly/data/profanity_en.json from the obscenity library's English dataset.
-// Run from the repo root after `npm install obscenity`: node backend/scripts/export_profanity.js
+// Only needed to update the word list. From the repo root:
+//   npm install --no-save obscenity@0.4.6
+//   node backend/scripts/export_profanity.js
 'use strict';
 const fs = require('fs');
 const path = require('path');

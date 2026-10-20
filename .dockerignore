@@ -1,7 +1,13 @@
-node_modules
 .git
-trivia-state.json
+**/node_modules
+frontend/dist
+backend/.venv
+backend/tests
+**/__pycache__
+**/*.egg-info
+.pytest_cache
+*.db
 *.tmp
+trivia-state.json
 trivia-night.backup.html
-test
 docs

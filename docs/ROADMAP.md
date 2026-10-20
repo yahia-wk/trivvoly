@@ -33,7 +33,7 @@ New work:
 | --- | --- | --- |
 | **0** | Questions move into quiz files (`quizzes/*.json`) with a strict validator; built-in assets (flags) stay in code and quizzes refer to them by id; every quiz text shown on screen is escaped; tidy folder layout; tests. | **Done** |
 | **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | **Built and tested**; deploying is next (needs a hosting account) |
-| **1.5** | **Rebuild** on the stack above, keeping every feature and the look. See "The rebuild" below. | **In progress** |
+| **1.5** | **Rebuild** on the stack above, keeping every feature and the look. See "The rebuild" below. | **Done** (follow-ups listed there) |
 | **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | |
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
@@ -66,9 +66,16 @@ Steps (the game keeps working at each one; the old Node app stays until the swit
 2. Frontend, simplest screen first: start page → team phone → remote → TV show; screenshot comparison against the current version.
 3. Switch over: remove the Node app, update the Dockerfile, README and this roadmap.
 
+All three steps are done. Follow-ups:
+
+- **View types**: the quiz types are generated from Pydantic, but the views the server sends (`host_view`, `player_view`) are still plain dicts mirrored by hand in `frontend/src/lib/types.ts`. Turning them into Pydantic models would let those be generated too.
+- **Frontend unit tests**: left out for now because the test runner that supports Node 20.11 (Vitest 3) has known vulnerabilities; add Vitest 5 after moving to Node 22. Until then the frontend is checked by TypeScript and by full browser rehearsals.
+- **Docker image**: rewritten for the new stack but not yet built and run here (Docker Desktop wasn't running).
+- **Node 22**: upgrading would also allow the newest Vite and React Router.
+
 ## Where quizzes live
 
-- **The quiz format is the contract; files are temporary storage.** `shared/quiz-format.js` is what every quiz must pass, wherever it comes from. The `quizzes/` folder holds only built-in quizzes and self-hosters' quizzes.
+- **The quiz format is the contract; files are temporary storage.** `backend/trivvoly/quiz.py` is what every quiz must pass, wherever it comes from. The `quizzes/` folder holds only built-in quizzes and self-hosters' quizzes.
 - **Online (Phase 2): Postgres.** A `questions` table (one row per question: type, category, difficulty, tags, author, visibility, moderation status, and the per-type content as JSONB in the same shape as the file format) so the bank is searchable and questions can be shared between quizzes; a `quizzes` table (title, owner, settings) with ordered rounds referencing questions.
 - **Every write is validated** with the same rules: the builder, imports, the API.
 - **Rooms snapshot their quiz at start**, so editing a quiz never disturbs a game in progress.
@@ -94,6 +101,8 @@ One bad quiz must never affect anyone else.
 
 ## What Phase 1 put in place
 
+(Built first in Node, then carried over unchanged in behaviour to the Python backend in the rebuild: `rooms.py`, `game.py`, `security.py`, `moderation.py`. The file names below are the original Node ones.)
+
 - **Rooms** (`lib/rooms.js`): 6-character codes from an alphabet without O/0/I/1 (about a billion combinations), a 128-bit quizmaster key per room, at most 300 rooms per server and 5 per address, expiry after 12 hours or 3 idle hours, and **End game** deletes a room immediately. Running games are saved to disk so a restart or deploy doesn't end them.
 - **Quizmaster links** look like `/r/K7QM2X/host#k=<key>`. The key is in the `#` part, which browsers never send to the server (so it never reaches logs), and is swapped for an HttpOnly, SameSite=Strict cookie scoped to `/r/K7QM2X`. The address bar is then wiped.
 - **Teams** get an HttpOnly cookie for their room when they join; no secrets in page scripts or URLs.
@@ -110,7 +119,7 @@ A server that stays running (live connections rule out "serverless" hosts like V
 
 ## Quiz file format (Phase 0)
 
-See [`quizzes/classic.json`](../quizzes/classic.json) for a full example and [`shared/quiz-format.js`](../shared/quiz-format.js) for the exact rules. In short:
+See [`quizzes/classic.json`](../quizzes/classic.json) for a full example and [`backend/trivvoly/quiz.py`](../backend/trivvoly/quiz.py) for the exact rules. In short:
 
 ```json
 {
