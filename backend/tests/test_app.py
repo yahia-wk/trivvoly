@@ -66,6 +66,7 @@ def test_pages_have_a_strict_security_policy(client):
     assert "script-src 'self'" in csp and "unsafe-inline" not in csp.split("script-src")[1].split(";")[0]
     assert "frame-ancestors 'none'" in csp
     assert r.headers["referrer-policy"] == "no-referrer" and r.headers["x-frame-options"] == "DENY"
+    assert client.get("/build").status_code == 200  # the quiz builder is a page of the app too
     assert client.get("/assets/app.js").status_code == 200
 
 

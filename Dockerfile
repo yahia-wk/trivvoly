@@ -7,6 +7,7 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci --no-audit --no-fund
 COPY shared/ /src/shared/
+COPY quizzes/ /src/quizzes/
 COPY frontend/ ./
 RUN npm run build
 

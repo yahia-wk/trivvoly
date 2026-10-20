@@ -359,6 +359,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         return Response("The frontend hasn’t been built yet: run `npm run build` in frontend/.", media_type="text/plain", status_code=503)
 
     @app.get("/")
+    @app.get("/build")
     async def home() -> Response:
         return spa()
 
