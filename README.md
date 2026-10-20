@@ -51,13 +51,15 @@ npm run gen:types    # after changing backend/trivvoly/quiz.py or views.py
 ### How it fits together
 
 - **The server owns every game.** Each room's state (slide, timer, reveals, answers, marks, disputes, scores) lives in [`backend/trivvoly/game.py`](backend/trivvoly/game.py). The TV, the team phones and the quizmaster's remote each hold one WebSocket, send commands, and draw the view the server sends them. Teams only ever receive public information.
-- **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms, accounts and saved quizzes, with SQLAlchemy: SQLite or Postgres), `accounts.py` + `google.py` + `mail.py` (signing in and saved quizzes), `app.py` + `security.py` (REST, WebSockets, protections).
+- **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms, accounts and saved quizzes, with SQLAlchemy: SQLite or Postgres), `accounts.py` + `google.py` + `mail.py` (signing in and saved quizzes), `admin.py` + `switches.py` (the admin area), `observe.py` (logs, request IDs, metrics), `app.py` + `security.py` (REST, WebSockets, protections).
 - **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels), `pages/build` (quiz builder), `pages/account` (sign in, your quizzes). Shared code is in `lib/`; all types for what the server sends are generated from the backend into `lib/contract.gen.ts`.
 - **Styling:** the existing screens use plain CSS scoped per screen on shared tokens (`styles/tokens.css`); Tailwind utilities are available for new screens.
 
 ## Accounts
 
 Nobody needs an account to play or host. Quizmasters can sign in, with Google or a link sent by email, to keep their quizzes in their account: the quiz builder saves as you type, and saved quizzes appear on the start page ready to play. On your own machine, email sign-in needs no setup (the link is printed in the server's terminal).
+
+Admins (the addresses in `ADMIN_EMAILS`) get an admin area at `/admin`: live games and accounts, bans, switches to pause new games or sign-ups, a notice on the start page, recent problems and an admin log. See [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Hosting it online
 

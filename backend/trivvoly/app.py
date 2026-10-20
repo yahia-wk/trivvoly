@@ -15,13 +15,16 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from starlette.staticfiles import StaticFiles
 
 from .accounts import Accounts
+from .admin import AdminHooks, admin_routes
 from .config import Config
 from .db import make_engine
 from .game import CommandError
 from .library import MAX_QUIZ_BYTES, load_library
+from .observe import RequestLog, attach_recent, event, metrics
 from .quiz import validate_quiz
 from .rooms import CODE, Connection, Room, RoomError, RoomStore
 from .security import LIMITS, BodyLimit, RateLimiter, SecurityHeaders, client_ip, is_https, room_cookie, same_origin
+from .switches import Switches
 
 log = logging.getLogger("trivvoly")
 COOKIE_AGE = 12 * 60 * 60
@@ -45,11 +48,19 @@ def lan_address() -> str | None:
 
 def create_app(config: Config | None = None, *, reset: bool = False, extra_quizzes: list[Path] | None = None) -> FastAPI:
     config = config or Config()
+    attach_recent()
     library, warnings = load_library(config.quizzes_dir, extra_quizzes)
+    for w in warnings:
+        event("quiz_skipped", logging.WARNING, problem=w[:300])
     engine = make_engine(config.database_url)
     rooms = RoomStore(config, engine)
     restored = rooms.load(reset=reset)
+    switches = Switches.load(engine)
     limiter = RateLimiter()
+    metrics.gauge("trivvoly_rooms_live", "Games running now", lambda: {(): len(rooms.rooms)})
+    metrics.gauge("trivvoly_teams_live", "Teams in running games", lambda: {(): sum(len(r.game.st.teams) for r in rooms.rooms.values())})
+    metrics.gauge("trivvoly_connections", "Open screens, by role", lambda: {
+        (("role", role),): sum(c.role == role for r in rooms.rooms.values() for c in r.connections) for role in ("host", "player")})
 
     # ---------- live updates ----------
     async def push(room: Room) -> None:
@@ -72,7 +83,10 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                 with contextlib.suppress(ValueError):
                     room.connections.remove(c)
 
-    async def close_room(room: Room) -> None:
+    async def close_room(room: Room, reason: str) -> None:
+        metrics.inc("trivvoly_rooms_ended_total", reason=reason)
+        event("room_ended", code=room.code, reason=reason, minutes=round((time.time() - room.created_at) / 60),
+              teams=len(room.game.st.teams))
         rooms.remove(room.code)
         for c in list(room.connections):
             with contextlib.suppress(Exception):
@@ -92,16 +106,17 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                     await push(room)
             if t - last_save > 2:
                 last_save = t
-                with contextlib.suppress(Exception):
+                try:
                     rooms.save_dirty()
+                except Exception:
+                    log.exception("couldn't save games", extra={"event": "save_failed"})
             if t - last_sweep > 60:
                 last_sweep = t
                 limiter.sweep()
                 with contextlib.suppress(Exception):
                     await asyncio.to_thread(accounts.sweep)
                 for room in rooms.expired(t):
-                    log.info("room %s expired", room.code)
-                    await close_room(room)
+                    await close_room(room, "expired")
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -118,7 +133,13 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
 
     def limited(kind: str, who: str) -> bool:
         n, window = LIMITS[kind]
-        return not limiter.allow(f"{kind}:{who}", n, window)
+        key = f"{kind}:{who}"
+        if limiter.allow(key, n, window):
+            return False
+        metrics.inc("trivvoly_rate_limited_total", kind=kind)
+        if limiter.first_refusal(key, n):
+            event("rate_limited", logging.WARNING, kind=kind, who=who if kind in ("player_msg", "host_msg", "save", "admin") else who[:64])
+        return True
 
     def site_url(request: Request | WebSocket) -> str:
         if config.public_url:
@@ -141,7 +162,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
             raise RoomError(400, "That request wasn’t valid JSON.")
         return body
 
-    accounts = Accounts(config, engine, limited, json_body)
+    accounts = Accounts(config, engine, limited, json_body, switches)
     app.state.accounts = accounts
     accounts.routes(app)
 
@@ -167,6 +188,11 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     @app.get("/healthz")
     async def healthz() -> Response:
         return Response("ok", media_type="text/plain")
+
+    @app.get("/api/site")
+    async def site() -> dict:
+        """For the start page: a notice from the admins, and whether new games are paused."""
+        return switches.public()
 
     @app.get("/api/quizzes")
     async def quizzes() -> dict:
@@ -194,6 +220,8 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         ip = client_ip(request.scope, config)
         if limited("create", ip):
             return error(429, "Slow down a little and try again in a minute.")
+        if switches.pause_new_games:
+            return error(503, "New games are paused for a little while. Please try again soon.")
         body = await json_body(request)
         if isinstance(body.get("quizId"), str):
             entry = library.get(body["quizId"])
@@ -210,7 +238,9 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         else:
             return error(400, "Pick a quiz.")
         room, key = rooms.create(quiz, quiz_id, ip)
-        log.info("room %s created (%s)", room.code, quiz.title)
+        source = "built_in" if quiz_id else "saved" if "savedQuizId" in body else "upload"
+        metrics.inc("trivvoly_rooms_created_total", source=source)
+        event("room_created", code=room.code, quiz=quiz.title[:80], source=source, ip=ip)
         res = JSONResponse({"code": room.code, "hostUrl": f"/r/{room.code}/host#k={key}"})
         res.set_cookie(**room_cookie("tvh", key, room.code, is_https(request.scope, config), COOKIE_AGE))
         return res
@@ -244,7 +274,10 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         try:
             team, token = room.game.join((await json_body(request)).get("name"))
         except CommandError as e:
+            event("team_join_refused", code=room.code, reason=str(e)[:80])
             return error(409 if "taken" in str(e) else 403 if "full" in str(e) else 400, str(e))
+        metrics.inc("trivvoly_teams_joined_total")
+        event("team_joined", code=room.code, team=team.id, teams=len(room.game.st.teams))
         room.touch()
         await push(room)
         res = JSONResponse({"id": team.id, "name": team.name})
@@ -289,11 +322,14 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         await push(room)
         limit_kind = "host_msg" if role == "host" else "player_msg"
         conn_id = f"{room.code}:{id(conn)}"
+        opened, received = time.time(), 0
         try:
             while True:
                 msg = await websocket.receive_json()
                 if not isinstance(msg, dict) or msg.get("type") != "cmd":
                     continue
+                received += 1
+                metrics.inc("trivvoly_ws_messages_total", role=role)
                 msg_id, cmd, args = msg.get("id"), str(msg.get("cmd", ""))[:30], msg.get("args") or {}
                 if not isinstance(args, dict):
                     args = {}
@@ -304,7 +340,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                     break  # the room ended while we were waiting
                 try:
                     if role == "host" and cmd == "end":
-                        await close_room(room)
+                        await close_room(room, "host")
                         break
                     if role == "host":
                         effect = room.game.host_command(cmd, args)
@@ -326,6 +362,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         except (WebSocketDisconnect, RuntimeError, ValueError):
             pass
         finally:
+            event("ws_closed", code=room.code, role=role, screen=conn.screen, seconds=round(time.time() - opened), messages=received)
             with contextlib.suppress(ValueError):
                 room.connections.remove(conn)
             if rooms.get(code) is room:
@@ -338,7 +375,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                 with contextlib.suppress(Exception):
                     await c.send({"type": "state", "view": view})
 
-    async def handle_effect(room: Room, sender: Connection, effect: dict[str, Any]) -> None:
+    async def handle_effect(room: Room, sender: Connection | None, effect: dict[str, Any]) -> None:
         kind = effect.get("effect")
         if kind == "kick":
             gone = set(effect.get("teams") or [])
@@ -349,13 +386,25 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                         await c.close()
                     with contextlib.suppress(ValueError):
                         room.connections.remove(c)
-        elif kind == "toast":
+        elif kind == "toast" and sender is not None:
             await sender.send({"type": "toast", "text": effect.get("text", "")})
         elif kind in TV_EFFECTS:
             for c in room.connections:
                 if c.role == "host" and c.screen == "tv":
                     with contextlib.suppress(Exception):
                         await c.send({"type": "effect", **effect})
+
+    # ---------- Admin ----------
+    async def remove_team(room: Room, team_id: str) -> bool:
+        effect = room.game.host_command("team_remove", {"team": team_id})
+        room.touch()
+        if effect:
+            await handle_effect(room, None, effect)
+        await push(room)
+        return True
+
+    admin_routes(app, config, accounts, rooms, AdminHooks(end_room=close_room, remove_team=remove_team), limited)
+    app.add_middleware(RequestLog, trust_proxy=config.trust_proxy, ip_of=lambda scope: client_ip(scope, config))
 
     # ---------- The frontend (built React app) ----------
     dist = config.frontend_dir
@@ -373,6 +422,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     @app.get("/signin")
     @app.get("/signin/email")
     @app.get("/account")
+    @app.get("/admin")
     async def home() -> Response:
         return spa()
 

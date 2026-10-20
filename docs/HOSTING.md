@@ -28,6 +28,10 @@ The [Dockerfile](../Dockerfile) on its own works too, with SQLite in a volume mo
 | `MAIL_FROM` + `SMTP_HOST`, `SMTP_PORT` (587, or 465 for TLS), `SMTP_USER`, `SMTP_PASSWORD` | ...or sent through any SMTP server instead. |
 | `TRIVVOLY_MAX_ROOMS`, `TRIVVOLY_MAX_ROOMS_PER_IP` | How many games can run at once, in all and per address (defaults 300 and 5). |
 | `TRIVVOLY_MAX_SAVED_QUIZZES` | Quizzes per account (default 100). |
+| `ADMIN_EMAILS` | Comma-separated email addresses whose accounts can open the admin area at `/admin`. See below. |
+| `LOG_FORMAT` | `text` (readable in a terminal) or `json` (one object per line, for log search; the Docker image's default). |
+| `LOG_LEVEL` | `INFO` (default: requests and game events) or `WARNING` (only problems). |
+| `METRICS_TOKEN` | Lets a monitoring service read `GET /metrics` (Prometheus format) with `Authorization: Bearer <token>`. Admins can always open it. |
 
 `GET /healthz` answers `ok` for health checks.
 
@@ -66,8 +70,37 @@ How it works:
 - The code travels in the link's `#` part, and the page posts it to sign in. So it never appears in server logs, and mail scanners that open links can't use it up.
 - Each address can ask for 5 links an hour, so nobody can flood someone's inbox.
 
+## The admin area
+
+Sign in with an address listed in `ADMIN_EMAILS`. Your account page then links to **Admin** (`/admin`). Only that setting can make someone an admin; nothing in the database can. To everyone else, every admin page and API answers "not found".
+
+- **Overview:** games running, teams, screens, accounts, sign-ins, errors and recent problems (the last warnings and errors, with request IDs to search the logs for).
+- **Switches:** pause new games (running games carry on), pause new sign-ups (existing accounts still sign in), and a notice shown at the top of the start page, e.g. before a restart. They survive restarts.
+- **Live games:** every running game with its teams. Remove a team (say, a name that slipped past the filter) or end a game.
+- **Accounts:** search by email or name; see each account's saved quizzes by title (not their contents); delete a quiz; sign someone out everywhere; ban (signs them out and stops that address signing in or signing up again, even if the account is deleted); delete an account. Admin accounts can't be banned or deleted from here.
+- **Admin log:** every admin action (who, what, when), kept in the database.
+
+## Logs and monitoring
+
+Logs go to standard output, never to files, and nothing is held in memory except the last 200 warnings and errors for the admin page. Your host collects them. `docker-compose.yml` caps Docker's log files at 5 × 10 MB per container; without a cap, Docker keeps logs forever.
+
+What's logged, one line each:
+
+- **Requests:** method, path (never the query string), route, status, time taken, client address and a request ID. The request ID is also sent back as the `X-Request-ID` header. Health checks, static files and refused (429) requests are logged only at debug level.
+- **Games:** started (quiz title, where the quiz came from, address), ended (why, how long, how many teams), team joined or refused (the reason, never the name), screen disconnected (role, seconds open, number of messages).
+- **Accounts:** sign-in link sent (email domain only), signed in (method, account ID, new or not), sign-in failed (reason), account deleted.
+- **Problems:** rate limits hit (once per limit window, not per request), emails that failed to send, games that failed to save, unhandled errors with their stack trace.
+- **Admin actions.**
+
+Never logged: query strings, cookies, request bodies, sign-in tokens or keys, full email addresses, team names, answers.
+
+Volume: a two-hour game with ten teams makes a few hundred lines (around 100 KB). `LOG_LEVEL=WARNING` keeps only problems.
+
+`/metrics` counts requests (by route and status), games started and ended, teams joined, sign-ins, rate-limited requests and WebSocket messages. It also shows games, teams and screens live now. Every label comes from a fixed list, so clients can't make it grow.
+
 ## What's stored
 
 - **Games:** each room's state, while it runs. Rooms are deleted after 12 hours, after 3 hours idle, or when the quizmaster ends the game.
 - **Accounts:** email address, name, Google ID (if used) and saved quizzes. People can delete their account, and everything in it, from the account page.
 - **Hashes only:** sign-in sessions (30 days), sign-in links (15 minutes) and quizmaster keys are stored only as SHA-256 hashes.
+- **Admin:** banned addresses (with the reason), the admin log, and the site switches.

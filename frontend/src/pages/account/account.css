@@ -3,6 +3,7 @@
 .page-account .mini-head { display: flex; align-items: center; justify-content: space-between; padding: 28px 0 18px; text-align: left; }
 .page-account .home { font-family: var(--display); font-size: 28px; color: var(--cream); text-decoration: none; text-shadow: 0 3px 0 var(--gold); }
 .page-account .who { font-weight: 700; opacity: .85; }
+.page-account .admin-link { color: var(--gold); margin-right: 14px; }
 .page-account .text { display: block; width: 100%; margin: 6px 0 0; padding: 12px 14px; border-radius: 12px; border: 2px solid rgba(255, 233, 168, .35); background: rgba(0, 0, 0, .3); font: inherit; font-size: 17px; color: var(--cream); }
 .page-account .text:focus { border-color: var(--gold); outline: none; }
 .page-account .btn { text-decoration: none; color: var(--cream); }

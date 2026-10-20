@@ -54,6 +54,10 @@ class RateLimiter:
     def __init__(self) -> None:
         self.hits: dict[str, tuple[int, float]] = {}
 
+    def first_refusal(self, key: str, limit: int) -> bool:
+        """True only for the first refused request in a window (so it's logged once, not thousands of times)."""
+        return self.hits.get(key, (0, 0))[0] == limit + 1
+
     def allow(self, key: str, limit: int, window: float) -> bool:
         t = time.monotonic()
         n, reset = self.hits.get(key, (0, t + window))
@@ -85,6 +89,7 @@ LIMITS = {
     "signin_verify": (30, 10 * MIN),  # sign-in links tried, per address
     "google": (30, 10 * MIN),   # Google sign-in steps, per address
     "save": (240, MIN),         # quiz saves per account (the builder saves as you type)
+    "admin": (600, MIN),        # admin requests per admin
 }
 
 # ---------- Headers and size limits ----------

@@ -13,6 +13,7 @@ const Build = lazy(() => import('./pages/build/Build'));
 const SignIn = lazy(() => import('./pages/account/SignIn'));
 const EmailLink = lazy(() => import('./pages/account/EmailLink'));
 const Account = lazy(() => import('./pages/account/Account'));
+const Admin = lazy(() => import('./pages/admin/Admin'));
 
 const page = (el: React.ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
   { path: '/signin', element: page(<SignIn />) },
   { path: '/signin/email', element: page(<EmailLink />) },
   { path: '/account', element: page(<Account />) },
+  { path: '/admin', element: page(<Admin />) },
   { path: '/r/:code', element: page(<Play />) },
   { path: '/r/:code/host', element: page(<Show />) },
   { path: '/r/:code/remote', element: page(<Remote />) },

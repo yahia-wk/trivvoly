@@ -59,7 +59,7 @@ export default function Account() {
       <div className="wrap">
         <header className="mini-head">
           <Link to="/" className="home">Trivvoly</Link>
-          <span className="who">{me.name}</span>
+          <span className="who">{me.admin && <Link to="/admin" className="admin-link">Admin</Link>}{me.name}</span>
         </header>
 
         <section className="card plain" aria-labelledby="quizzes-h">

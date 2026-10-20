@@ -16,7 +16,11 @@ export default function SignIn() {
   const [options, setOptions] = useState<{ google: boolean; email: boolean } | null>(null);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState('');
-  const [error, setError] = useState(params.get('error') === 'google' ? 'Signing in with Google didn’t work out. Try again, or use your email instead.' : '');
+  const [error, setError] = useState(({
+    google: 'Signing in with Google didn’t work out. Try again, or use your email instead.',
+    banned: 'This account can’t sign in.',
+    paused: 'New accounts are paused for now. Please try again later.'
+  } as Record<string, string>)[params.get('error') || ''] || '');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { authOptions().then(setOptions).catch(() => setError('Can’t reach Trivvoly. Check your connection.')); }, []);

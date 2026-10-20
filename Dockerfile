@@ -17,6 +17,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TRUST_PROXY=1 \
+    LOG_FORMAT=json \
     DATABASE_URL=sqlite:////data/trivvoly.db
 COPY backend/ backend/
 # Editable install: the server finds quizzes/, shared/ and frontend/dist/ next to backend/

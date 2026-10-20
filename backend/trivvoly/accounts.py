@@ -21,13 +21,15 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .config import Config
-from .db import LoginTokenRow, SavedQuizRow, SessionRow, UserRow
+from .db import BanRow, LoginTokenRow, SavedQuizRow, SessionRow, UserRow
 from .google import Attempt, GoogleClient, GoogleError, authorize_url, read_id_token
 from .mail import Mailer, make_mailer, sign_in_email
 from .moderation import is_offensive
+from .observe import email_domain, event, metrics
 from .quiz import Quiz, validate_quiz
 from .rooms import RoomError
 from .security import client_ip, is_https
+from .switches import Switches
 
 log = logging.getLogger("trivvoly")
 
@@ -54,8 +56,10 @@ def clean_name(value: Any) -> str | None:
     return name if 1 <= len(name) <= 40 and not is_offensive(name) else None
 
 
-def public_user(user: UserRow) -> dict[str, Any]:
-    return {"name": user.name, "email": user.email, "google": user.google_sub is not None}
+class SignInRefused(Exception):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def quiz_summary(row: SavedQuizRow) -> dict[str, Any]:
@@ -78,8 +82,9 @@ def describe_quiz(data: Any) -> tuple[str, str, bool, int, int]:
 
 class Accounts:
     def __init__(self, config: Config, engine: Any, limited: Callable[[str, str], bool],
-                 json_body: Callable[[Request], Awaitable[dict[str, Any]]]) -> None:
+                 json_body: Callable[[Request], Awaitable[dict[str, Any]]], switches: Switches | None = None) -> None:
         self.config, self.engine, self.limited, self.json_body = config, engine, limited, json_body
+        self.switches = switches or Switches()
         self.mailer: Mailer | None = make_mailer(config)
         self.google: GoogleClient | None = (GoogleClient(config.google_client_id, config.google_client_secret)
                                             if config.google_client_id and config.google_client_secret else None)
@@ -91,12 +96,32 @@ class Accounts:
     async def run(self, fn: Callable[..., Any], *args: Any) -> Any:
         return await asyncio.to_thread(fn, *args)
 
+    def is_admin(self, user: UserRow | None) -> bool:
+        return user is not None and user.email in self.config.admin_emails
+
+    def public(self, user: UserRow) -> dict[str, Any]:
+        return {"name": user.name, "email": user.email, "google": user.google_sub is not None, "admin": self.is_admin(user)}
+
     def _user_for_token(self, token: str) -> UserRow | None:
         with self._db() as db:
             row = db.get(SessionRow, _hash(token))
             if row is None or row.expires_at < time.time():
                 return None
-            return db.get(UserRow, row.user_id)
+            user = db.get(UserRow, row.user_id)
+            return None if user is None or db.get(BanRow, user.email) is not None else user
+
+    def is_banned(self, email: str) -> bool:
+        with self._db() as db:
+            return db.get(BanRow, email) is not None
+
+    def wipe(self, user_id: str, email: str) -> None:
+        """Delete an account and everything in it."""
+        with self._db() as db:
+            db.execute(delete(SavedQuizRow).where(SavedQuizRow.owner_id == user_id))
+            db.execute(delete(SessionRow).where(SessionRow.user_id == user_id))
+            db.execute(delete(LoginTokenRow).where(LoginTokenRow.email == email))
+            db.execute(delete(UserRow).where(UserRow.id == user_id))
+            db.commit()
 
     async def current_user(self, request: Request) -> UserRow | None:
         token = request.cookies.get(SESSION_COOKIE)
@@ -110,12 +135,18 @@ class Accounts:
             raise RoomError(401, "Sign in first.")
         return user
 
-    def _sign_in(self, email: str, name: str, google_sub: str | None) -> tuple[UserRow, str]:
-        """Find or make the account for this verified email (or Google account), and start a session."""
+    def _sign_in(self, email: str, name: str, google_sub: str | None) -> tuple[UserRow, str, bool]:
+        """Find or make the account for this verified email (or Google account), and start a session.
+        Returns (user, session token, whether the account is new)."""
         t = time.time()
         with self._db() as db:
             user = db.scalar(select(UserRow).where(UserRow.google_sub == google_sub)) if google_sub else None
             user = user or db.scalar(select(UserRow).where(UserRow.email == email))
+            if db.get(BanRow, user.email if user else email) is not None:
+                raise SignInRefused("banned", "This account can’t sign in.")
+            new = user is None
+            if new and self.switches.pause_sign_ups:
+                raise SignInRefused("paused", "New accounts are paused for now. Please try again later.")
             if user is None:
                 user = UserRow(id=secrets.token_hex(16), email=email, name=clean_name(name) or clean_name(email.split("@")[0][:40]) or "Quizmaster",
                                google_sub=google_sub, created_at=t, last_login=t)
@@ -127,7 +158,7 @@ class Accounts:
             token = secrets.token_urlsafe(32)
             db.add(SessionRow(token_hash=_hash(token), user_id=user.id, created_at=t, expires_at=t + self.config.session_days * 86400))
             db.commit()
-            return user, token
+            return user, token, new
 
     def _session_cookie(self, res: Response, request: Request, token: str) -> None:
         res.set_cookie(SESSION_COOKIE, token, max_age=self.config.session_days * 86400, path="/",
@@ -177,7 +208,7 @@ class Accounts:
         @app.get("/api/me")
         async def me(request: Request) -> dict:
             user = await self.current_user(request)
-            return {"user": public_user(user) if user else None}
+            return {"user": self.public(user) if user else None}
 
         @app.patch("/api/me")
         async def update_me(request: Request) -> dict:
@@ -192,21 +223,14 @@ class Accounts:
                     db.commit()
             await self.run(save)
             user.name = name
-            return {"user": public_user(user)}
+            return {"user": self.public(user)}
 
         @app.delete("/api/me")
         async def delete_me(request: Request) -> Response:
             user = await self.require_user(request)
 
-            def wipe() -> None:
-                with self._db() as db:
-                    db.execute(delete(SavedQuizRow).where(SavedQuizRow.owner_id == user.id))
-                    db.execute(delete(SessionRow).where(SessionRow.user_id == user.id))
-                    db.execute(delete(LoginTokenRow).where(LoginTokenRow.email == user.email))
-                    db.execute(delete(UserRow).where(UserRow.id == user.id))
-                    db.commit()
-            await self.run(wipe)
-            log.info("account deleted")
+            await self.run(self.wipe, user.id, user.email)
+            event("account_deleted", user=user.id, by="self")
             res = JSONResponse({"ok": True})
             res.delete_cookie(SESSION_COOKIE, path="/")
             return res
@@ -240,6 +264,9 @@ class Accounts:
             # Per address and per inbox, so nobody can flood someone's inbox with links
             if self.limited("signin_email", client_ip(request.scope, config)) or self.limited("signin_to", email):
                 return slow_down()
+            if await self.run(self.is_banned, email):
+                event("sign_in_link_refused", reason="banned", email_domain=email_domain(email))
+                return JSONResponse({"ok": True})  # say nothing that tells strangers who is banned
             token, nxt = secrets.token_urlsafe(32), safe_next(body.get("next"))
 
             def store() -> None:
@@ -253,8 +280,9 @@ class Accounts:
             try:
                 await self.mailer.send(sign_in_email(email, link, config.login_link_minutes))
             except Exception:
-                log.exception("couldn't send a sign-in email")
+                log.exception("couldn't send a sign-in email", extra={"event": "mail_failed", "mailer": self.mailer.name})
                 return JSONResponse({"error": "We couldn’t send the email just now. Try again in a minute."}, status_code=502)
+            event("sign_in_link_sent", email_domain=email_domain(email), mailer=self.mailer.name)
             return JSONResponse({"ok": True})
 
         @app.post("/api/auth/email/verify")
@@ -275,9 +303,18 @@ class Accounts:
                     return row if row.expires_at >= time.time() else None
             row = await self.run(use)
             if row is None:
+                metrics.inc("trivvoly_sign_ins_total", method="email", result="bad_link")
+                event("sign_in_failed", method="email", reason="expired or used link")
                 raise RoomError(400, "That sign-in link has expired or was already used. Ask for a new one.")
-            user, session = await self.run(self._sign_in, row.email, "", None)
-            res = JSONResponse({"user": public_user(user), "next": row.next})
+            try:
+                user, session, new = await self.run(self._sign_in, row.email, "", None)
+            except SignInRefused as e:
+                metrics.inc("trivvoly_sign_ins_total", method="email", result=e.code)
+                event("sign_in_failed", method="email", reason=e.code, email_domain=email_domain(row.email))
+                raise RoomError(403, str(e)) from None
+            metrics.inc("trivvoly_sign_ins_total", method="email", result="ok")
+            event("sign_in", method="email", user=user.id, new=new)
+            res = JSONResponse({"user": self.public(user), "next": row.next})
             self._session_cookie(res, request, session)
             return res
 
@@ -301,9 +338,10 @@ class Accounts:
 
         @app.get("/api/auth/google/callback")
         async def google_callback(request: Request) -> Response:
-            def fail(why: str) -> Response:
-                log.info("Google sign-in failed: %s", why)
-                res = RedirectResponse("/signin?error=google", status_code=302)
+            def fail(why: str, code: str = "google") -> Response:
+                metrics.inc("trivvoly_sign_ins_total", method="google", result=code)
+                event("sign_in_failed", method="google", reason=why)
+                res = RedirectResponse(f"/signin?error={code}", status_code=302)
                 res.delete_cookie(GOOGLE_COOKIE, path="/api/auth/google")
                 return res
 
@@ -327,7 +365,12 @@ class Accounts:
                 return fail(str(e))
             except Exception as e:  # network trouble reaching Google
                 return fail(repr(e))
-            _, session = await self.run(self._sign_in, guser.email, guser.name, guser.sub)
+            try:
+                user, session, new = await self.run(self._sign_in, guser.email, guser.name, guser.sub)
+            except SignInRefused as e:
+                return fail(e.code, e.code)
+            metrics.inc("trivvoly_sign_ins_total", method="google", result="ok")
+            event("sign_in", method="google", user=user.id, new=new)
             res = RedirectResponse(nxt, status_code=302)
             res.delete_cookie(GOOGLE_COOKIE, path="/api/auth/google")
             self._session_cookie(res, request, session)

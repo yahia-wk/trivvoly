@@ -37,9 +37,10 @@ export const checkQuiz = (quiz: unknown) => post<{ ok: boolean; problems: string
 
 /* ---------- Accounts ---------- */
 
-export interface User { name: string; email: string; google: boolean }
+export interface User { name: string; email: string; google: boolean; admin: boolean }
 export interface SavedQuiz { id: string; title: string; ok: boolean; rounds: number; questions: number; updatedAt: number }
 
+export const siteInfo = () => call<{ notice: string; newGamesPaused: boolean }>('/api/site');
 export const authOptions = () => call<{ google: boolean; email: boolean }>('/api/auth/options');
 export const getMe = () => call<{ user: User | null }>('/api/me');
 export const renameMe = (name: string) => send<{ user: User }>('PATCH', '/api/me', { name });

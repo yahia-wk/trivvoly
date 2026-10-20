@@ -65,6 +65,33 @@ class SavedQuizRow(Base):
     updated_at: Mapped[float] = mapped_column(Float)
 
 
+class BanRow(Base):
+    """An email address that can't sign in (or sign up again), set by an admin."""
+    __tablename__ = "bans"
+    email: Mapped[str] = mapped_column(String(254), primary_key=True)
+    reason: Mapped[str] = mapped_column(String(200))
+    by: Mapped[str] = mapped_column(String(254))
+    created_at: Mapped[float] = mapped_column(Float)
+
+
+class AdminLogRow(Base):
+    """Every admin action: who, what, to what, when."""
+    __tablename__ = "admin_log"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[float] = mapped_column(Float, index=True)
+    admin: Mapped[str] = mapped_column(String(254))
+    action: Mapped[str] = mapped_column(String(40))
+    target: Mapped[str] = mapped_column(String(254))
+    detail: Mapped[str] = mapped_column(String(500))
+
+
+class SettingRow(Base):
+    """Site switches admins can flip while it runs (pause new games, a notice on the start page...)."""
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(String(500))
+
+
 def make_engine(url: str):
     engine = create_engine(url, future=True)
     if engine.dialect.name == "sqlite":
@@ -75,4 +102,4 @@ def make_engine(url: str):
     return engine
 
 
-__all__ = ["Base", "LoginTokenRow", "RoomRow", "SavedQuizRow", "Session", "SessionRow", "UserRow", "make_engine"]
+__all__ = ["AdminLogRow", "BanRow", "Base", "LoginTokenRow", "SettingRow", "RoomRow", "SavedQuizRow", "Session", "SessionRow", "UserRow", "make_engine"]

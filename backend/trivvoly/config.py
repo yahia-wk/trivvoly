@@ -40,3 +40,13 @@ class Config:
     session_days: int = 30              # how long "signed in" lasts without using the site
     login_link_minutes: int = 15        # how long an emailed sign-in link works
     max_saved_quizzes: int = field(default_factory=lambda: _int("TRIVVOLY_MAX_SAVED_QUIZZES", 100))
+
+    # Admins: accounts whose (verified) email is listed here, comma-separated. Only this setting can
+    # make someone an admin, so nothing stored in the database can.
+    admin_emails: frozenset[str] = field(default_factory=lambda: frozenset(
+        e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()))
+    # Logs: "text" to read in a terminal, "json" for a hosting provider's log search (the Docker image's default)
+    log_format: str = field(default_factory=lambda: os.environ.get("LOG_FORMAT", "text"))
+    log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
+    # GET /metrics for a monitoring service, with "Authorization: Bearer <this>" (admins can always see it)
+    metrics_token: str = field(default_factory=lambda: os.environ.get("METRICS_TOKEN", ""))

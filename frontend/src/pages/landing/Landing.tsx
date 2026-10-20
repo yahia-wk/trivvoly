@@ -1,7 +1,7 @@
 // Start page: join a game with its room code, or host a quiz (built-in, from your account, or uploaded).
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ApiError, ROOM_CODE, createRoom, listQuizzes, myQuizzes, type QuizSummary, type SavedQuiz } from '../../lib/api';
+import { ApiError, ROOM_CODE, createRoom, listQuizzes, myQuizzes, siteInfo, type QuizSummary, type SavedQuiz } from '../../lib/api';
 import { useMe } from '../../lib/useMe';
 import './landing.css';
 
@@ -23,12 +23,14 @@ export default function Landing() {
   const [busy, setBusy] = useState(false);
   const me = useMe();
   const [mine, setMine] = useState<SavedQuiz[]>([]);
+  const [site, setSite] = useState<{ notice: string; newGamesPaused: boolean }>({ notice: '', newGamesPaused: false });
 
   useEffect(() => {
     if (params.has('missing')) setParams({}, { replace: true });
     listQuizzes()
       .then(d => { setQuizzes(d.quizzes); setPick(d.quizzes[0]?.id ?? '__upload'); })
       .catch(() => setLoadError('Couldn’t load the quizzes. Refresh to try again.'));
+    siteInfo().then(setSite).catch(() => {});
   }, []); // once, on arrival
 
   useEffect(() => { if (me) myQuizzes().then(d => setMine(d.quizzes)).catch(() => {}); }, [me]);
@@ -70,6 +72,7 @@ export default function Landing() {
         <nav className="account-link" aria-label="Account">
           {me ? <Link to="/account">{me.name}: your quizzes</Link> : me === null && <Link to="/signin">Sign in</Link>}
         </nav>
+        {site.notice && <p className="notice" role="status">{site.notice}</p>}
         <header>
           <h1>Trivvoly</h1>
           <p className="tag">Pens down! A live trivia night for a TV and everyone’s phones: free-text answers, jokers, teams marking each other, and disputes ruled on the big screen.</p>
@@ -122,7 +125,8 @@ export default function Landing() {
               {upload?.name && !problems.length && <p className="ok">Ready to check: {upload.name}</p>}
               {problems.length > 0 && <><p className="err">This quiz needs a few fixes:</p><ul className="problems">{problems.map(p => <li key={p}>{p}</li>)}</ul></>}
             </div>
-            <button className="btn primary block" type="button" onClick={host} disabled={busy}>{busy ? 'Starting…' : 'Start a game'}</button>
+            <button className="btn primary block" type="button" onClick={host} disabled={busy || site.newGamesPaused}>{busy ? 'Starting…' : 'Start a game'}</button>
+            {site.newGamesPaused && <p className="muted" style={{ marginTop: 8, textAlign: 'center' }}>New games are paused for a little while. Games already running carry on.</p>}
             <p className="muted" style={{ marginTop: 12, textAlign: 'center' }}>Want your own questions? <Link to="/build" style={{ color: 'var(--gold)' }}>Write a quiz in the quiz builder</Link></p>
             <div className="err" role="alert">{hostError}</div>
           </section>
