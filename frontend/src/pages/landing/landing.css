@@ -42,3 +42,7 @@
 .page-landing footer{text-align:center;margin-top:28px;font-size:14px;opacity:.7}
 .page-landing footer a{color:var(--gold)}
 .page-landing{min-height:100vh;min-height:100dvh}
+.page-landing .account-link{display:flex;justify-content:flex-end;padding-top:16px;font-weight:700}
+.page-landing .account-link a{color:var(--gold);text-decoration:none;padding:8px 14px;border:2px solid rgba(245,184,61,.45);border-radius:999px}
+.page-landing .account-link + header{padding-top:12px}
+.page-landing .quiz.unready{opacity:.6;cursor:default}

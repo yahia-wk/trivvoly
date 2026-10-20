@@ -14,7 +14,7 @@ ORIGIN = {"origin": "http://testserver"}
 
 
 @pytest.fixture
-def make(tmp_path):
+def make(tmp_path, database_url):
     """Build an app on a fresh database (and a fake built frontend)."""
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
@@ -24,7 +24,7 @@ def make(tmp_path):
     broken.write_text(json.dumps({"title": "Broken", "rounds": [{"title": "R", "kind": "nope", "questions": []}]}), encoding="utf-8")
 
     def _make(**overrides):
-        cfg = Config(database_url=f"sqlite:///{tmp_path / 'test.db'}", frontend_dir=dist, max_rooms_per_ip=100, **overrides)
+        cfg = Config(database_url=database_url, frontend_dir=dist, max_rooms_per_ip=100, **overrides)
         return create_app(cfg, extra_quizzes=[broken])
     return _make
 

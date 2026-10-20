@@ -1,8 +1,10 @@
 // The quiz builder: write a quiz in the browser, checked live by the server's own rules,
 // previewed as the TV draws it. Then download it or start a game with it straight away.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
-import { checkQuiz, createRoom, listQuizzes, loadBuiltInQuiz, type QuizSummary } from '../../lib/api';
+// At /build the draft lives in this browser; at /build/:id it's a quiz in your account, saved as you type.
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { ApiError, checkQuiz, createRoom, createSavedQuiz, getSavedQuiz, listQuizzes, loadBuiltInQuiz, updateSavedQuiz, type QuizSummary } from '../../lib/api';
+import { useMe } from '../../lib/useMe';
 import type { Quiz, Slide } from '../../lib/types';
 import { blankQuiz, blankRound, kindLabel, parseProblems, tagKinds, toFile, under, type Problem } from './draft';
 import { DetailsEditor, move, ProblemList, RoundEditor, TiebreakerEditor, TuneEditor } from './Editors';
@@ -12,18 +14,59 @@ import './build.css';
 const DRAFT_KEY = 'trivvoly-draft';
 type Selection = { section: 'details' } | { section: 'round'; round: number } | { section: 'tiebreakers' } | { section: 'tunes' };
 
+type SaveState = 'saved' | 'pending' | 'saving' | 'failed';
+const SAVE_LABEL: Record<SaveState, string> = { saved: 'Saved in your account', pending: 'Saving…', saving: 'Saving…', failed: 'Couldn’t save: check your connection' };
+
+/** A quiz file or saved draft may be half-finished; make sure the builder can at least open it. */
+function openable(raw: unknown): Quiz | null {
+  try {
+    const quiz = tagKinds(raw);
+    return Array.isArray(quiz.rounds) && quiz.rounds.length > 0 && quiz.rounds.every(r => r && Array.isArray(r.questions)) ? quiz : null;
+  } catch { return null; }
+}
+
 function loadDraft(): { quiz: Quiz; restored: boolean } {
   try {
     const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) return { quiz: tagKinds(JSON.parse(saved)), restored: true };
+    const quiz = saved ? openable(JSON.parse(saved)) : null;
+    if (quiz) return { quiz, restored: true };
   } catch { /* nothing saved, or storage is off */ }
   return { quiz: blankQuiz(), restored: false };
 }
 
 export default function Build() {
-  const initial = useMemo(loadDraft, []);
-  const [quiz, setQuiz] = useState<Quiz>(initial.quiz);
-  const [note, setNote] = useState(initial.restored ? 'Welcome back: your last draft was restored from this browser.' : '');
+  const { id } = useParams();
+  const [saved, setSaved] = useState<{ id: string; quiz: Quiz } | null>(null);
+  const [error, setError] = useState<{ text: string; signIn: boolean } | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    setSaved(null); setError(null);
+    getSavedQuiz(id)
+      .then(r => { const quiz = openable(r.quiz); if (quiz) setSaved({ id, quiz }); else setError({ text: 'This saved quiz is too damaged to open in the builder.', signIn: false }); })
+      .catch((e: Error) => setError(e instanceof ApiError && e.status === 401
+        ? { text: 'Sign in to open the quizzes in your account.', signIn: true } : { text: e.message, signIn: false }));
+  }, [id]);
+  if (!id) return <Editor key="draft" {...loadDraft()} />;
+  if (saved) return <Editor key={saved.id} quiz={saved.quiz} restored={false} savedId={saved.id} />;
+  return (
+    <div className="page-build">
+      <div className="loading">
+        {!error ? <p>Loading your quiz…</p> : <>
+          <p className="err">{error.text}</p>
+          <p>{error.signIn ? <Link to={`/signin?next=/build/${id}`}>Sign in</Link> : <Link to="/account">Back to your quizzes</Link>}</p>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function Editor({ quiz: initialQuiz, restored, savedId }: { quiz: Quiz; restored: boolean; savedId?: string }) {
+  const navigate = useNavigate();
+  const me = useMe();
+  const [quiz, setQuiz] = useState<Quiz>(initialQuiz);
+  const [note, setNote] = useState(restored ? 'Welcome back: your last draft was restored from this browser.' : '');
+  const [saveState, setSaveState] = useState<SaveState>('saved');
+  const loaded = useRef(initialQuiz);
   const [sel, setSel] = useState<Selection>({ section: 'details' });
   const [preview, setPreview] = useState<{ r: number; q: number; answer: boolean }>({ r: 0, q: 0, answer: false });
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -41,14 +84,40 @@ export default function Build() {
     setChecking(true);
     const t = window.setTimeout(() => {
       const file = toFile(quiz);
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(file)); } catch { /* storage full or off */ }
+      if (!savedId) try { localStorage.setItem(DRAFT_KEY, JSON.stringify(file)); } catch { /* storage full or off */ }
       checkQuiz(file)
         .then(r => { setProblems(parseProblems(r.problems)); setSummary(r.summary ?? null); setCheckFailed(false); })
         .catch(() => setCheckFailed(true))
         .finally(() => setChecking(false));
     }, 500);
     return () => window.clearTimeout(t);
-  }, [quiz]);
+  }, [quiz, savedId]);
+
+  // A quiz in your account saves itself shortly after each change
+  useEffect(() => {
+    if (!savedId || quiz === loaded.current) return;
+    setSaveState('pending');
+    const t = window.setTimeout(() => {
+      setSaveState('saving');
+      updateSavedQuiz(savedId, toFile(quiz)).then(() => setSaveState('saved')).catch(() => setSaveState('failed'));
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [quiz, savedId]);
+  useEffect(() => { // don't let the page close with changes not yet saved
+    if (saveState === 'saved') return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [saveState]);
+
+  async function saveToAccount() {
+    setBusy(true);
+    try {
+      const row = await createSavedQuiz(toFile(quiz));
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage off */ }
+      navigate(`/build/${row.id}`, { replace: true });
+    } catch (e) { setNote((e as Error).message); setBusy(false); }
+  }
 
   const hasContent = quiz.rounds.some(r => r.questions.some(q => ('a' in q && q.a) || ('q' in q && q.q)));
   const replace = (next: Quiz, message: string) => {
@@ -59,8 +128,9 @@ export default function Build() {
   async function openFile(file: File | undefined) {
     if (!file) return;
     if (file.size > 500 * 1024) { setNote('That file is too big (max 500 KB).'); return; }
-    try { replace(tagKinds(JSON.parse((await file.text()).replace(/^\s+/, ''))), `Opened ${file.name}.`); }
-    catch { setNote('That isn’t a valid quiz file.'); }
+    let opened: Quiz | null = null;
+    try { opened = openable(JSON.parse((await file.text()).replace(/^\s+/, ''))); } catch { /* not JSON */ }
+    if (opened) replace(opened, `Opened ${file.name}.`); else setNote('That isn’t a valid quiz file.');
   }
 
   async function startFrom(id: string) {
@@ -126,16 +196,21 @@ export default function Build() {
         <Link to="/" className="brand">Trivvoly</Link>
         <span className="crumb">Quiz builder</span>
         {status}
+        {savedId && <span className={`st${saveState === 'failed' ? ' bad' : ''}`} role="status">{SAVE_LABEL[saveState]}</span>}
         <div className="actions">
-          <button type="button" className="btn" onClick={() => replace(blankQuiz(), 'Started a new quiz.')}>New</button>
-          <button type="button" className="btn" onClick={() => fileInput.current?.click()}>Open file</button>
-          <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={e => { openFile(e.target.files?.[0]); e.target.value = ''; }} />
-          {builtIns.length > 0 && (
-            <select className="btn" value="" onChange={e => startFrom(e.target.value)} aria-label="Start from a built-in quiz">
-              <option value="">Copy a built-in quiz…</option>
-              {builtIns.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
-            </select>
-          )}
+          {savedId ? <Link className="btn" to="/account">Your quizzes</Link> : <>
+            <button type="button" className="btn" onClick={() => replace(blankQuiz(), 'Started a new quiz.')}>New</button>
+            <button type="button" className="btn" onClick={() => fileInput.current?.click()}>Open file</button>
+            <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={e => { openFile(e.target.files?.[0]); e.target.value = ''; }} />
+            {builtIns.length > 0 && (
+              <select className="btn" value="" onChange={e => startFrom(e.target.value)} aria-label="Start from a built-in quiz">
+                <option value="">Copy a built-in quiz…</option>
+                {builtIns.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
+              </select>
+            )}
+            {me ? <button type="button" className="btn" onClick={saveToAccount} disabled={busy}>Save to my quizzes</button>
+              : me === null && <Link className="btn" to="/signin?next=/build">Sign in to save</Link>}
+          </>}
           <button type="button" className="btn" onClick={download}>Download</button>
           <button type="button" className="btn primary" disabled={busy || checking || checkFailed || problems.length > 0} onClick={play} title={problems.length ? 'Fix the problems first' : 'Open this quiz on the TV'}>Start a game</button>
         </div>

@@ -1,0 +1,30 @@
+/* Sign-in and account pages: the start page's look (landing.css) plus these. */
+.page-account .wrap.narrow { max-width: 480px; }
+.page-account .mini-head { display: flex; align-items: center; justify-content: space-between; padding: 28px 0 18px; text-align: left; }
+.page-account .home { font-family: var(--display); font-size: 28px; color: var(--cream); text-decoration: none; text-shadow: 0 3px 0 var(--gold); }
+.page-account .who { font-weight: 700; opacity: .85; }
+.page-account .text { display: block; width: 100%; margin: 6px 0 0; padding: 12px 14px; border-radius: 12px; border: 2px solid rgba(255, 233, 168, .35); background: rgba(0, 0, 0, .3); font: inherit; font-size: 17px; color: var(--cream); }
+.page-account .text:focus { border-color: var(--gold); outline: none; }
+.page-account .btn { text-decoration: none; color: var(--cream); }
+.page-account .btn.primary { color: var(--velvet-deep); }
+.page-account .btn.small { padding: 8px 14px; font-size: 15px; }
+.page-account .btn.danger { border-color: rgba(226, 56, 77, .6); color: #ffb3bc; }
+.page-account .btn.google { background: #fff; color: #1f1f1f; border-color: #fff; }
+.page-account .btn.google .g { font-weight: 800; color: #4285f4; font-size: 20px; }
+.page-account .or { display: flex; align-items: center; gap: 12px; margin: 18px 0 6px; opacity: .7; font-size: 14px; }
+.page-account .or::before, .page-account .or::after { content: ''; flex: 1; border-top: 1px solid rgba(255, 233, 168, .3); }
+.page-account .big { font-size: 22px; font-weight: 700; }
+.page-account .linkish { background: none; border: 0; padding: 0; color: var(--gold); text-decoration: underline; cursor: pointer; font: inherit; }
+.page-account .fine { font-size: 13px; opacity: .65; text-align: center; margin-top: 16px; line-height: 1.5; }
+.page-account .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.page-account .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.page-account .wrap-row { margin-top: 14px; }
+.page-account .saved { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.page-account .saved li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 14px; border: 2px solid rgba(255, 233, 168, .2); background: rgba(0, 0, 0, .2); }
+.page-account .saved .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.page-account .saved .info b { font-size: 17px; overflow-wrap: anywhere; }
+.page-account .saved .info span { font-size: 14px; opacity: .75; }
+.page-account .saved .info .needs { color: #ffb3bc; opacity: 1; font-weight: 600; }
+.page-account .inline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-bottom: 12px; }
+.page-account .inline label { width: 100%; }
+.page-account .inline .text { flex: 1 1 220px; width: auto; margin: 0; }

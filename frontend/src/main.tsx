@@ -10,12 +10,19 @@ const Play = lazy(() => import('./pages/play/Play'));
 const Remote = lazy(() => import('./pages/remote/Remote'));
 const Show = lazy(() => import('./pages/show/Show'));
 const Build = lazy(() => import('./pages/build/Build'));
+const SignIn = lazy(() => import('./pages/account/SignIn'));
+const EmailLink = lazy(() => import('./pages/account/EmailLink'));
+const Account = lazy(() => import('./pages/account/Account'));
 
 const page = (el: React.ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 const router = createBrowserRouter([
   { path: '/', element: page(<Landing />) },
   { path: '/build', element: page(<Build />) },
+  { path: '/build/:id', element: page(<Build />) },
+  { path: '/signin', element: page(<SignIn />) },
+  { path: '/signin/email', element: page(<EmailLink />) },
+  { path: '/account', element: page(<Account />) },
   { path: '/r/:code', element: page(<Play />) },
   { path: '/r/:code/host', element: page(<Show />) },
   { path: '/r/:code/remote', element: page(<Remote />) },

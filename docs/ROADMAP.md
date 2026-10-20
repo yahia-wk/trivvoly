@@ -34,7 +34,7 @@ New work:
 | **0** | Questions move into quiz files (`quizzes/*.json`) with a strict validator; built-in assets (flags) stay in code and quizzes refer to them by id; every quiz text shown on screen is escaped; tidy folder layout; tests. | **Done** |
 | **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | **Built and tested**; deploying is next (needs a hosting account) |
 | **1.5** | **Rebuild** on the stack above, keeping every feature and the look. See "The rebuild" below. | **Done** (follow-ups listed there) |
-| **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | Quiz builder **done** (`/build`: live checking by the server's rules, TV preview, drafts kept in the browser, download or play). Accounts and saved quizzes next. |
+| **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | **Done**, except spreadsheet import: quiz builder (`/build`), sign-in with Google or email links, quizzes saved in your account (builder saves as you type; JSON import), Postgres tested (tests and Docker Compose). Spreadsheet import later. |
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
 
@@ -46,7 +46,7 @@ Layout:
 
 ```
 backend/    FastAPI app (package `trivvoly`): quiz models, game state machine, rooms, realtime, security, moderation; pytest suite
-frontend/   React + TypeScript + Vite app: start page, team phone, TV show, remote, quiz builder (later: accounts)
+frontend/   React + TypeScript + Vite app: start page, team phone, TV show, remote, quiz builder, accounts
 quizzes/    built-in quizzes (unchanged format)
 shared/     assets used by both sides (flag library as JSON)
 docs/
@@ -76,7 +76,7 @@ All three steps are done. Follow-ups:
 ## Where quizzes live
 
 - **The quiz format is the contract; files are temporary storage.** `backend/trivvoly/quiz.py` is what every quiz must pass, wherever it comes from. The `quizzes/` folder holds only built-in quizzes and self-hosters' quizzes.
-- **Online (Phase 2): Postgres.** A `questions` table (one row per question: type, category, difficulty, tags, author, visibility, moderation status, and the per-type content as JSONB in the same shape as the file format) so the bank is searchable and questions can be shared between quizzes; a `quizzes` table (title, owner, settings) with ordered rounds referencing questions.
+- **Online: Postgres.** Phase 2 keeps each saved quiz as one row (`saved_quizzes`: owner, title, the quiz in the file format as JSON), checked by the same validator. Phase 3's question bank then adds a `questions` table (one row per question: type, category, difficulty, tags, author, visibility, moderation status, and the per-type content as JSONB in the same shape as the file format) so the bank is searchable and questions can be shared between quizzes; a `quizzes` table (title, owner, settings) with ordered rounds referencing questions.
 - **Every write is validated** with the same rules: the builder, imports, the API.
 - **Rooms snapshot their quiz at start**, so editing a quiz never disturbs a game in progress.
 - **JSON files stay as import/export** (backup, sharing, moving between servers) and the `format` number lets old files be migrated.

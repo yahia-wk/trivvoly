@@ -35,7 +35,7 @@ Round kinds: `standard` (question + answer), `flag` (a built-in flag, or emoji +
 cd backend
 python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"      # macOS/Linux: .venv/bin/pip
-.venv\Scripts\python -m pytest              # tests
+.venv\Scripts\python -m pytest              # tests (TEST_DATABASE_URL=postgresql+psycopg://... runs them on Postgres)
 .venv\Scripts\python -m trivvoly            # server on :3000 (--reset clears saved games)
 
 # Frontend (React + TypeScript + Vite), in a second terminal
@@ -51,27 +51,21 @@ npm run gen:types    # after changing backend/trivvoly/quiz.py or views.py
 ### How it fits together
 
 - **The server owns every game.** Each room's state (slide, timer, reveals, answers, marks, disputes, scores) lives in [`backend/trivvoly/game.py`](backend/trivvoly/game.py). The TV, the team phones and the quizmaster's remote each hold one WebSocket, send commands, and draw the view the server sends them. Teams only ever receive public information.
-- **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms saved with SQLAlchemy), `app.py` + `security.py` (REST, WebSockets, protections).
-- **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels). Shared code is in `lib/`; all types for what the server sends are generated from the backend into `lib/contract.gen.ts`.
+- **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms, accounts and saved quizzes, with SQLAlchemy: SQLite or Postgres), `accounts.py` + `google.py` + `mail.py` (signing in and saved quizzes), `app.py` + `security.py` (REST, WebSockets, protections).
+- **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels), `pages/build` (quiz builder), `pages/account` (sign in, your quizzes). Shared code is in `lib/`; all types for what the server sends are generated from the backend into `lib/contract.gen.ts`.
 - **Styling:** the existing screens use plain CSS scoped per screen on shared tokens (`styles/tokens.css`); Tailwind utilities are available for new screens.
+
+## Accounts
+
+Nobody needs an account to play or host. Quizmasters can sign in, with Google or a link sent by email, to keep their quizzes in their account: the quiz builder saves as you type, and saved quizzes appear on the start page ready to play. On your own machine, email sign-in needs no setup (the link is printed in the server's terminal).
 
 ## Hosting it online
 
-The [Dockerfile](Dockerfile) builds the screens and runs the server in one container. Run it behind your provider's HTTPS and set:
-
-| Variable | What it does |
-| --- | --- |
-| `PORT` | Port to listen on (default 3000). |
-| `PUBLIC_URL` | The site's address, e.g. `https://trivvoly.com`. Used for join links and QR codes. |
-| `TRUST_PROXY=1` | Behind exactly one proxy/load balancer (the usual hosting setup): take the client address from the last `X-Forwarded-For` entry and HTTPS from `X-Forwarded-Proto` (set in the Dockerfile). Don't set it when the server is reachable directly, or clients could fake their address. |
-| `DATABASE_URL` | Where running games are saved (default: a SQLite file; the Dockerfile uses `/data/trivvoly.db`, so mount a volume at `/data`). |
-| `TRIVVOLY_MAX_ROOMS`, `TRIVVOLY_MAX_ROOMS_PER_IP` | Capacity limits (defaults 300 and 5). |
-
-`GET /healthz` answers `ok` for health checks.
+`docker compose up --build` runs Trivvoly with a Postgres database. Put it behind HTTPS and set `PUBLIC_URL`. [docs/HOSTING.md](docs/HOSTING.md) has every setting, and step-by-step setup for Google sign-in and sign-in emails.
 
 ## Safety
 
-Built for strangers on the internet: quizzes are validated data and every piece of text is escaped; quizmaster secrets travel in the link's `#` part and become HttpOnly cookies scoped to one room, and are stored only as hashes (team logins too); every WebSocket's origin is checked; pages send a strict Content-Security-Policy; requests and messages are size- and rate-limited; team names and dispute reasons are filtered for offensive words; rooms (with all their data) expire after a few hours or when the quizmaster ends the game. See [docs/ROADMAP.md](docs/ROADMAP.md).
+Built for strangers on the internet: quizzes are validated data and every piece of text is escaped; quizmaster secrets travel in the link's `#` part and become HttpOnly cookies scoped to one room, and are stored only as hashes (team logins too); every WebSocket's origin is checked; pages send a strict Content-Security-Policy; requests and messages are size- and rate-limited; team names and dispute reasons are filtered for offensive words; rooms (with all their data) expire after a few hours or when the quizmaster ends the game. Accounts: sign-in sessions and emailed links are random tokens stored only as hashes; links work once for 15 minutes; Google sign-in runs on the server with PKCE, state and nonce checks; every account can be deleted with everything in it. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Credits
 

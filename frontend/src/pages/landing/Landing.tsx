@@ -1,7 +1,8 @@
-// Start page: join a game with its room code, or host a quiz (built-in or uploaded).
+// Start page: join a game with its room code, or host a quiz (built-in, from your account, or uploaded).
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ApiError, ROOM_CODE, createRoom, listQuizzes, type QuizSummary } from '../../lib/api';
+import { ApiError, ROOM_CODE, createRoom, listQuizzes, myQuizzes, type QuizSummary, type SavedQuiz } from '../../lib/api';
+import { useMe } from '../../lib/useMe';
 import './landing.css';
 
 const MAX_UPLOAD = 500 * 1024;
@@ -20,6 +21,8 @@ export default function Landing() {
   const [problems, setProblems] = useState<string[]>([]);
   const [hostError, setHostError] = useState('');
   const [busy, setBusy] = useState(false);
+  const me = useMe();
+  const [mine, setMine] = useState<SavedQuiz[]>([]);
 
   useEffect(() => {
     if (params.has('missing')) setParams({}, { replace: true });
@@ -27,6 +30,8 @@ export default function Landing() {
       .then(d => { setQuizzes(d.quizzes); setPick(d.quizzes[0]?.id ?? '__upload'); })
       .catch(() => setLoadError('Couldn’t load the quizzes. Refresh to try again.'));
   }, []); // once, on arrival
+
+  useEffect(() => { if (me) myQuizzes().then(d => setMine(d.quizzes)).catch(() => {}); }, [me]);
 
   function join(e: FormEvent) {
     e.preventDefault();
@@ -50,7 +55,7 @@ export default function Landing() {
     if (pick === '__upload' && !upload?.quiz) { setHostError('Choose a quiz file first.'); return; }
     setBusy(true);
     try {
-      const r = await createRoom(pick === '__upload' ? { quiz: upload!.quiz } : { quizId: pick });
+      const r = await createRoom(pick === '__upload' ? { quiz: upload!.quiz } : pick.startsWith('saved:') ? { savedQuizId: pick.slice(6) } : { quizId: pick });
       window.location.href = r.hostUrl; // full load, so the quizmaster screen starts fresh
     } catch (e) {
       setHostError((e as Error).message);
@@ -62,6 +67,9 @@ export default function Landing() {
   return (
     <div className="page-landing">
       <div className="wrap">
+        <nav className="account-link" aria-label="Account">
+          {me ? <Link to="/account">{me.name}: your quizzes</Link> : me === null && <Link to="/signin">Sign in</Link>}
+        </nav>
         <header>
           <h1>Trivvoly</h1>
           <p className="tag">Pens down! A live trivia night for a TV and everyone’s phones: free-text answers, jokers, teams marking each other, and disputes ruled on the big screen.</p>
@@ -92,6 +100,14 @@ export default function Landing() {
                   <label className="quiz">
                     <input type="radio" name="quiz" value={q.id} checked={pick === q.id} onChange={() => setPick(q.id)} />
                     <span><b>{q.title}</b><span>{q.rounds} rounds · {q.questions} questions</span></span>
+                  </label>
+                </li>
+              ))}
+              {mine.map(q => (
+                <li key={q.id}>
+                  <label className={`quiz${q.ok ? '' : ' unready'}`}>
+                    <input type="radio" name="quiz" value={q.id} disabled={!q.ok} checked={pick === `saved:${q.id}`} onChange={() => setPick(`saved:${q.id}`)} />
+                    <span><b>{q.title}</b><span>Yours · {q.ok ? `${q.rounds} round${q.rounds === 1 ? '' : 's'} · ${q.questions} question${q.questions === 1 ? '' : 's'}` : 'needs a few fixes in the quiz builder'}</span></span>
                   </label>
                 </li>
               ))}

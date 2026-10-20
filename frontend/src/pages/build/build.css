@@ -10,6 +10,9 @@
 .page-build .actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
 .page-build .note-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 20px 0; padding: 10px 14px; border-radius: 10px; background: rgba(245, 184, 61, .12); border: 1px solid rgba(245, 184, 61, .4); }
 
+.page-build .loading { max-width: 480px; margin: 80px auto; padding: 0 16px; text-align: center; }
+.page-build .loading a { color: var(--gold); }
+.page-build a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .page-build .btn { padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(255, 233, 168, .35); background: transparent; color: var(--cream); font-weight: 600; font-size: 14px; cursor: pointer; }
 .page-build .btn:hover { border-color: var(--gold); }
 .page-build .btn.primary { background: var(--gold); color: var(--velvet-deep); border-color: var(--gold); }

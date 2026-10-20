@@ -80,6 +80,11 @@ LIMITS = {
     "player_msg": (120, MIN),   # messages per team connection
     "check": (240, MIN),        # quiz-builder checks per address (one per pause in typing)
     "host_msg": (1200, MIN),    # messages per quizmaster connection
+    "signin_email": (10, HOUR), # sign-in emails asked for, per address
+    "signin_to": (5, HOUR),     # ...and per inbox, so nobody can flood someone's inbox
+    "signin_verify": (30, 10 * MIN),  # sign-in links tried, per address
+    "google": (30, 10 * MIN),   # Google sign-in steps, per address
+    "save": (240, MIN),         # quiz saves per account (the builder saves as you type)
 }
 
 # ---------- Headers and size limits ----------
@@ -132,7 +137,8 @@ class BodyLimit:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope["method"] in ("GET", "HEAD", "OPTIONS"):
             return await self.app(scope, receive, send)
-        limit = self.overrides.get(scope["path"], self.default)
+        path = scope["path"]
+        limit = self.overrides.get(path) or next((n for p, n in self.overrides.items() if p.endswith("*") and path.startswith(p[:-1])), self.default)
         declared = Headers(scope=scope).get("content-length")
         if declared and declared.isdigit() and int(declared) > limit:
             return await _too_big(send)

@@ -25,3 +25,18 @@ class Config:
     max_rooms_per_ip: int = field(default_factory=lambda: _int("TRIVVOLY_MAX_ROOMS_PER_IP", 5))
     room_lifetime: int = 12 * 60 * 60   # seconds a room may live
     room_idle: int = 3 * 60 * 60        # ...or sit without anything happening
+
+    # Accounts. Google sign-in is on when both Google settings are set. Email links are sent by
+    # Resend (RESEND_API_KEY) or SMTP (SMTP_HOST...) from MAIL_FROM; with neither, and no PUBLIC_URL
+    # (so: running on your own machine), the link is printed in the terminal instead.
+    google_client_id: str = field(default_factory=lambda: os.environ.get("GOOGLE_CLIENT_ID", ""))
+    google_client_secret: str = field(default_factory=lambda: os.environ.get("GOOGLE_CLIENT_SECRET", ""))
+    mail_from: str = field(default_factory=lambda: os.environ.get("MAIL_FROM", ""))
+    resend_api_key: str = field(default_factory=lambda: os.environ.get("RESEND_API_KEY", ""))
+    smtp_host: str = field(default_factory=lambda: os.environ.get("SMTP_HOST", ""))
+    smtp_port: int = field(default_factory=lambda: _int("SMTP_PORT", 587))
+    smtp_user: str = field(default_factory=lambda: os.environ.get("SMTP_USER", ""))
+    smtp_password: str = field(default_factory=lambda: os.environ.get("SMTP_PASSWORD", ""))
+    session_days: int = 30              # how long "signed in" lasts without using the site
+    login_link_minutes: int = 15        # how long an emailed sign-in link works
+    max_saved_quizzes: int = field(default_factory=lambda: _int("TRIVVOLY_MAX_SAVED_QUIZZES", 100))

@@ -20,7 +20,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATABASE_URL=sqlite:////data/trivvoly.db
 COPY backend/ backend/
 # Editable install: the server finds quizzes/, shared/ and frontend/dist/ next to backend/
-RUN pip install --no-cache-dir -e ./backend
+RUN pip install --no-cache-dir -e "./backend[postgres]"
 COPY quizzes/ quizzes/
 COPY shared/ shared/
 COPY --from=frontend /src/frontend/dist frontend/dist

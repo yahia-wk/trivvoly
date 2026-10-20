@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
 
+from .accounts import Accounts
 from .config import Config
 from .db import make_engine
 from .game import CommandError
@@ -96,6 +97,8 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
             if t - last_sweep > 60:
                 last_sweep = t
                 limiter.sweep()
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(accounts.sweep)
                 for room in rooms.expired(t):
                     log.info("room %s expired", room.code)
                     await close_room(room)
@@ -108,7 +111,8 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         rooms.save_dirty()
 
     app = FastAPI(title="Trivvoly", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(BodyLimit, overrides={"/api/rooms": MAX_QUIZ_BYTES + 64 * 1024, "/api/quizzes/check": MAX_QUIZ_BYTES + 64 * 1024})
+    big = MAX_QUIZ_BYTES + 64 * 1024
+    app.add_middleware(BodyLimit, overrides={"/api/rooms": big, "/api/quizzes/check": big, "/api/my/quizzes*": big})
     app.add_middleware(SecurityHeaders)
     app.state.rooms, app.state.library, app.state.warnings, app.state.restored = rooms, library, warnings, restored
 
@@ -136,6 +140,10 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         if not isinstance(body, dict):
             raise RoomError(400, "That request wasn’t valid JSON.")
         return body
+
+    accounts = Accounts(config, engine, limited, json_body)
+    app.state.accounts = accounts
+    accounts.routes(app)
 
     @app.exception_handler(RoomError)
     async def room_error(_: Request, e: RoomError) -> JSONResponse:
@@ -192,6 +200,8 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
             if entry is None:
                 return error(404, "That quiz doesn’t exist.")
             quiz, quiz_id = entry.quiz, entry.id
+        elif "savedQuizId" in body:
+            quiz, quiz_id = await accounts.saved_quiz_for_game(request, body["savedQuizId"]), None
         elif "quiz" in body:
             quiz, problems = validate_quiz(body["quiz"])
             if quiz is None:
@@ -360,7 +370,14 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
 
     @app.get("/")
     @app.get("/build")
+    @app.get("/signin")
+    @app.get("/signin/email")
+    @app.get("/account")
     async def home() -> Response:
+        return spa()
+
+    @app.get("/build/{quiz_id}")
+    async def build_saved(quiz_id: str) -> Response:
         return spa()
 
     @app.get("/r/{code}")
