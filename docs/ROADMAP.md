@@ -10,6 +10,8 @@ Trivvoly today runs on one PC for one game: a big-screen show, team phones, peer
 | Money | Free. No charging for now; ads or similar may come later, but they don't shape the design today. |
 | Game feel | Keep the current mechanics and vibe: TV show, free-text answers, jokers, peer marking, disputes ruled on the big screen. Scale it, don't turn it into a Kahoot clone. Multiple-choice is added later as one more question type. |
 | Self-hosting | Keep it. "Run it free on your own PC, or use the hosted version." |
+| Tech stack | **Backend: Python + FastAPI** (the owner maintains it and knows Python best), Pydantic for every model, WebSockets for live updates, SQLAlchemy (SQLite now, Postgres in Phase 2), pytest. **Frontend: React + TypeScript + Vite**, one app for every screen. Styling is flexible: CSS Modules carry the existing custom look over, Tailwind is available for new screens, both on one shared set of colour and font tokens. |
+| Who runs the game | **The server.** Each room's state (current slide, timer, reveals, marks, scores, disputes) lives on the server; the TV, team phones and the quizmaster's remote are views that send commands. Sound, animation and lights stay on the TV. |
 | Licence | MIT for now. **Open decision:** before the hosted service grows, consider AGPL so nobody can run a closed, modified copy as a competing service. Easy to switch while there is a single author. |
 
 ## What changes and what doesn't
@@ -31,9 +33,38 @@ New work:
 | --- | --- | --- |
 | **0** | Questions move into quiz files (`quizzes/*.json`) with a strict validator; built-in assets (flags) stay in code and quizzes refer to them by id; every quiz text shown on screen is escaped; tidy folder layout; tests. | **Done** |
 | **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | **Built and tested**; deploying is next (needs a hosting account) |
+| **1.5** | **Rebuild** on the stack above, keeping every feature and the look. See "The rebuild" below. | **In progress** |
 | **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | |
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
+
+## The rebuild (Phase 1.5)
+
+Why: the prototype grew one feature at a time inside three large HTML files (markup, styles and logic together), and the TV's browser was the game's brain, with the server relaying copies. That doesn't scale to accounts, a builder and a question bank.
+
+Layout:
+
+```
+backend/    FastAPI app (package `trivvoly`): quiz models, game state machine, rooms, realtime, security, moderation; pytest suite
+frontend/   React + TypeScript + Vite app: start page, team phone, TV show, remote (later: builder, accounts)
+quizzes/    built-in quizzes (unchanged format)
+shared/     assets used by both sides (flag library as JSON)
+docs/
+```
+
+Design points:
+
+- **Server-owned game state.** Commands (next, reveal, start timer, mark, rule on a dispute, …) go to the server, which updates the room and sends each connection the view it's allowed to see: the TV and remote get everything, phones get only public data. The timer is an end time, so every screen counts down in sync. Dispute rulings are a server-side sequence (showing → deliberating → verdict) the TV animates.
+- **One WebSocket per screen**, authenticated by the room cookie, with an Origin check on the handshake (cookies alone don't protect WebSockets from other sites) and per-connection rate limits.
+- **Pydantic is the single source of truth** for the quiz format and every message; TypeScript types for the frontend are generated from it, so the two can't drift.
+- **Same security model as Phase 1**: room-scoped HttpOnly cookies, keys in the link's `#` part, strict CSP (simpler now: the built app has no inline scripts), size and rate limits, moderation, expiry. Quizmaster keys are stored hashed.
+- **One container**: FastAPI serves the built React app from the same address.
+
+Steps (the game keeps working at each one; the old Node app stays until the switch):
+
+1. Backend: models, state machine, rooms, realtime, security, moderation; every existing test ported plus state-machine tests.
+2. Frontend, simplest screen first: start page → team phone → remote → TV show; screenshot comparison against the current version.
+3. Switch over: remove the Node app, update the Dockerfile, README and this roadmap.
 
 ## Where quizzes live
 
