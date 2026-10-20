@@ -58,6 +58,9 @@ class Room:
     def touch(self) -> None:
         self.last_active, self.dirty = time.time(), True
 
+    def tv_online(self) -> bool:
+        return any(c.role == "host" and c.screen == "tv" for c in self.connections)
+
     def online_team_ids(self) -> set[str]:
         return {c.team_id for c in self.connections if c.team_id}
 

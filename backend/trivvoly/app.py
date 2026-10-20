@@ -24,7 +24,7 @@ from .security import LIMITS, BodyLimit, RateLimiter, SecurityHeaders, client_ip
 
 log = logging.getLogger("trivvoly")
 COOKIE_AGE = 12 * 60 * 60
-TV_EFFECTS = {"tune", "read", "lounge", "mute", "fullscreen", "hint"}
+TV_EFFECTS = {"tune", "read", "lounge", "mute", "fullscreen", "hint", "volume", "close_panels"}
 
 
 def error(status: int, message: str, **extra: Any) -> JSONResponse:
@@ -58,7 +58,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         for c in list(room.connections):
             try:
                 if c.role == "host":
-                    host_view = host_view or room.game.host_view(room.online_team_ids())
+                    host_view = host_view or room.game.host_view(room.online_team_ids(), room.tv_online())
                     await c.send({"type": "state", "view": host_view})
                 else:
                     team = room.game.st.teams.get(c.team_id)
@@ -305,7 +305,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
                 await push(room)
 
     async def push_hosts(room: Room) -> None:
-        view = room.game.host_view(room.online_team_ids())
+        view = room.game.host_view(room.online_team_ids(), room.tv_online())
         for c in list(room.connections):
             if c.role == "host":
                 with contextlib.suppress(Exception):

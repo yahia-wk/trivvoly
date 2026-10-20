@@ -213,12 +213,9 @@ class Quiz(Strict):
         return self
 
     def public_dict(self) -> dict[str, Any]:
-        """The quiz as sent to the quizmaster's screens (no internal tags)."""
-        d = self.model_dump(exclude_none=True)
-        for r in d["rounds"]:
-            for q in r["questions"]:
-                q.pop("kind", None)
-        return d
+        """The quiz as sent to the quizmaster's screens. Each question keeps its round's `kind`
+        so the frontend's generated types can tell question types apart."""
+        return self.model_dump(exclude_none=True)
 
     @property
     def question_count(self) -> int:

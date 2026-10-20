@@ -1,0 +1,44 @@
+/* Ported from the original index.html; every rule is scoped to .page-landing. */
+.page-landing{margin:0;min-height:100%;background:var(--velvet-deep);color:var(--cream);font-family:var(--text);-webkit-font-smoothing:antialiased}
+.page-landing{background:radial-gradient(120% 60% at 50% 0%,var(--velvet) 0,var(--velvet-deep) 70%) fixed;padding:env(safe-area-inset-top,0) 16px calc(32px + env(safe-area-inset-bottom,0))}
+.page-landing button,.page-landing input{font:inherit;color:inherit}
+.page-landing :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.page-landing .wrap{max-width:980px;margin:0 auto}
+.page-landing header{text-align:center;padding:48px 0 18px}
+.page-landing h1{font-family:var(--display);font-weight:400;font-size:clamp(48px,10vw,96px);margin:0;color:var(--cream);text-shadow:0 5px 0 var(--gold),0 9px 0 rgba(0,0,0,.35);letter-spacing:.02em}
+.page-landing .tag{font-size:clamp(17px,2.4vw,22px);opacity:.9;margin:22px auto 0;max-width:620px;line-height:1.45}
+.page-landing .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px;margin-top:30px}
+@media (max-width:760px){
+.page-landing .grid{grid-template-columns:minmax(0,1fr)}
+}
+.page-landing .card{background:var(--board);border:2px solid rgba(245,184,61,.45);border-radius:20px;padding:22px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.page-landing .card.plain{background:var(--panel)}
+.page-landing h2{font-family:var(--display);font-weight:400;color:var(--bulb);font-size:24px;margin:0 0 6px}
+.page-landing p{line-height:1.45;margin:0 0 12px}
+.page-landing .muted{opacity:.78;font-size:15px}
+.page-landing .code{display:block;width:100%;margin:10px 0 0;padding:14px;border-radius:12px;border:2px solid rgba(255,233,168,.35);background:rgba(0,0,0,.3);font-family:var(--display);font-size:32px;letter-spacing:.25em;text-align:center;text-transform:uppercase}
+.page-landing .code:focus{border-color:var(--gold);outline:none}
+.page-landing .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:12px;border:2px solid rgba(255,233,168,.35);background:transparent;font-weight:700;font-size:17px;cursor:pointer}
+.page-landing .btn.primary{background:var(--gold);color:var(--velvet-deep);border-color:var(--gold)}
+.page-landing .btn.block{width:100%;margin-top:14px}
+.page-landing .btn:disabled{opacity:.5;cursor:default}
+.page-landing .err{color:#ffb3bc;font-weight:600;margin-top:10px;min-height:1.4em}
+.page-landing .quizzes{display:grid;gap:10px;margin:14px 0 0;padding:0;list-style:none}
+.page-landing .quiz{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:2px solid rgba(255,233,168,.2);background:rgba(0,0,0,.2);cursor:pointer}
+.page-landing .quiz:has(input:checked){border-color:var(--gold);background:rgba(245,184,61,.14)}
+.page-landing .quiz input{width:20px;height:20px;accent-color:var(--gold);flex:none}
+.page-landing .quiz b{display:block;font-size:17px}
+.page-landing .quiz span{font-size:14px;opacity:.75}
+.page-landing .upload{margin-top:12px;padding:12px 14px;border-radius:14px;border:2px dashed rgba(255,233,168,.3)}
+.page-landing .upload input[type=file]{display:block;margin-top:8px;font-size:14px;max-width:100%}
+.page-landing .problems{margin:8px 0 0;padding-left:20px;color:#ffb3bc;font-size:14px;max-height:180px;overflow:auto}
+.page-landing .ok{color:var(--mint);font-weight:700;margin-top:8px}
+.page-landing .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}
+@media (max-width:760px){
+.page-landing .steps{grid-template-columns:minmax(0,1fr)}
+}
+.page-landing .step{background:rgba(0,0,0,.2);border-radius:14px;padding:14px}
+.page-landing .step b{display:block;font-family:var(--display);font-weight:400;color:var(--gold);font-size:15px;margin-bottom:4px}
+.page-landing footer{text-align:center;margin-top:28px;font-size:14px;opacity:.7}
+.page-landing footer a{color:var(--gold)}
+.page-landing{min-height:100vh;min-height:100dvh}

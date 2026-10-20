@@ -1,0 +1,42 @@
+/* Shared design tokens and base rules for every screen.
+   Ported screens use these CSS variables directly; new screens can use the same colours and fonts
+   through Tailwind utilities (bg-velvet, text-gold, font-display, …). Tailwind's reset ("preflight")
+   is deliberately not loaded, so it can't shift the ported screens' spacing. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+:root {
+  --velvet: #3B0D2B; --velvet-deep: #1E0617; --rim: #22061A; --panel: #2b0b22;
+  --board: #0F3B47; --board-hi: #17606F; --board-deep: #0A2830;
+  --gold: #F5B83D; --gold-deep: #B97F18; --gold-shade: #6E4710; --bulb: #FFE9A8; --cream: #FFF6E0;
+  --cherry: #E2384D; --mint: #7FE0C2;
+  --display: 'Bungee', 'Arial Black', Impact, sans-serif;
+  --text: 'Bricolage Grotesque', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --bar-h: 58px;
+  --lit-bg: radial-gradient(circle at 40% 35%, #fff 0, var(--bulb) 35%, var(--gold) 80%);
+  --lit-glow: 0 0 12px 3px rgba(255, 205, 110, .6);
+  --off-bg: radial-gradient(circle at 40% 35%, #8a6a3a, #4a3418 70%);
+  --red-bg: radial-gradient(circle at 40% 35%, #fff 0, #ffb3bc 35%, var(--cherry) 80%);
+  --red-glow: 0 0 14px 4px rgba(226, 56, 77, .7);
+  color-scheme: dark;
+}
+
+@theme {
+  --color-velvet: #3B0D2B;
+  --color-velvet-deep: #1E0617;
+  --color-panel: #2b0b22;
+  --color-board: #0F3B47;
+  --color-gold: #F5B83D;
+  --color-bulb: #FFE9A8;
+  --color-cream: #FFF6E0;
+  --color-cherry: #E2384D;
+  --color-mint: #7FE0C2;
+  --font-display: 'Bungee', 'Arial Black', Impact, sans-serif;
+  --font-text: 'Bricolage Grotesque', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--velvet-deep); color: var(--cream); font-family: var(--text); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }

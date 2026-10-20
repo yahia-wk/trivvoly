@@ -507,10 +507,18 @@ class Game:
                     setattr(se, k, bool(a[k]))
             return None
 
-        if cmd in ("tune", "read", "lounge", "mute", "fullscreen"):  # things only the TV can do
+        if cmd in ("tune", "read", "lounge", "mute", "fullscreen", "close_panels"):  # things only the TV can do
             return {"effect": cmd}
+        if cmd == "volume":
+            try:
+                level = min(1.0, max(0.0, float(a.get("value"))))
+            except (TypeError, ValueError):
+                raise CommandError("Volume must be a number from 0 to 1.") from None
+            return {"effect": "volume", "value": level}
         if cmd == "tv_status":  # the TV reporting its own sound status for the remote
             self.tv = {k: bool(a.get(k)) for k in ("soundReady", "playing", "muted", "lounge")}
+            vol = a.get("volume")
+            self.tv["volume"] = min(1.0, max(0.0, float(vol))) if isinstance(vol, (int, float)) else 0.7
             return None
         raise CommandError("Unknown command.")
 
@@ -621,10 +629,10 @@ class Game:
         if qk.startswith("tb-"):
             ti = int(qk[3:])
             tb = self.quiz.tiebreakers[ti]
-            return {"qk": qk, "n": ti + 1, "label": f"Tiebreaker {ti + 1}", "icon": tb.icon, "text": tb.q, "input": "number"}
+            return {"qk": qk, "n": ti + 1, "label": f"Tiebreaker {ti + 1} of {len(self.quiz.tiebreakers)}", "icon": tb.icon, "text": tb.q, "input": "number"}
         r, qi = (int(x) for x in qk.split("-"))
         rnd, q = self.quiz.rounds[r], self.quiz.rounds[r].questions[qi]
-        o: dict[str, Any] = {"qk": qk, "r": r, "n": qi + 1, "label": f"Question {qi + 1}",
+        o: dict[str, Any] = {"qk": qk, "r": r, "n": qi + 1, "label": f"Question {qi + 1} of {len(rnd.questions)}",
                              "input": "ab" if rnd.kind == "versus" else "music" if rnd.kind == "music" else "text"}
         if isinstance(q, MusicQ) and q.tune is not None:
             o.update(icon="🎵", text=f"Track {qi + 1}: listen to the tune on the big screen.", bLabel="Composer")
@@ -683,7 +691,7 @@ class Game:
                 "correct": key["a"] + (f" · {key['sub']}" if key["sub"] else ""), "note": key["note"],
                 "reason": d.reason, "from": d.from_pts, "max": self.max_pts(qk)}
 
-    def host_view(self, online: set[str]) -> dict[str, Any]:
+    def host_view(self, online: set[str], tv_online: bool = False) -> dict[str, Any]:
         """Everything, for the quizmaster's TV and phone."""
         st, s = self.st, self.slide
         ranks = {row["id"]: row["rank"] for row in self.ranked()}
@@ -731,7 +739,7 @@ class Game:
             "timer": self._timer_view(), "settings": st.settings.model_dump(), "teams": teams,
             "current": current, "pairings": st.pairings.get(s.r, {}) if s.r is not None else {},
             "disputes": [self.dispute_facts(qk_d, tid) for qk_d, tid, _ in self.open_disputes()],
-            "theatre": theatre, "parked": st.parked, "tv": self.tv, "serverTime": now() * 1000,
+            "theatre": theatre, "parked": st.parked, "tv": {**self.tv, "online": tv_online}, "serverTime": now() * 1000,
         }
 
     def player_view(self, team: Team) -> dict[str, Any]:

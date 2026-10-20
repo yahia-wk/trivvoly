@@ -22,7 +22,8 @@ def test_the_classic_quiz_is_valid_and_unchanged():
     assert not errors
     assert quiz.question_count == 56 and len(quiz.rounds) == 7
     pub = quiz.public_dict()
-    assert json.dumps(pub["rounds"], sort_keys=True) == json.dumps(CLASSIC["rounds"], sort_keys=True)
+    untagged = [{**r, "questions": [{k: v for k, v in q.items() if k != "kind"} for q in r["questions"]]} for r in pub["rounds"]]
+    assert json.dumps(untagged, sort_keys=True) == json.dumps(CLASSIC["rounds"], sort_keys=True)
     assert pub["tiebreakers"] == CLASSIC["tiebreakers"] and pub["tunes"] == CLASSIC["tunes"]
 
 
@@ -38,7 +39,7 @@ def test_unknown_fields_are_dropped_everywhere():
     d["rounds"][0]["questions"][0]["svg"] = "<svg onload=alert(1)>"
     pub = validate_quiz(d)[0].public_dict()
     assert "onload" not in pub and "html" not in pub["rounds"][0]
-    assert sorted(pub["rounds"][0]["questions"][0]) == ["a", "q"]
+    assert sorted(pub["rounds"][0]["questions"][0]) == ["a", "kind", "q"]
 
 
 def test_flags_only_come_from_the_built_in_library():
