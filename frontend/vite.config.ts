@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -11,5 +12,6 @@ export default defineConfig({
     proxy: { '/api': { target: 'http://localhost:3000', ws: true } },
     fs: { allow: ['..'] } // shared/flags.json lives next to the backend
   },
-  build: { outDir: 'dist', emptyOutDir: true, sourcemap: false }
+  build: { outDir: 'dist', emptyOutDir: true, sourcemap: false },
+  test: { environment: 'jsdom', include: ['src/**/*.test.{ts,tsx}'] }
 });

@@ -6,7 +6,7 @@ A pub-quiz show for a TV or projector, with phones for the teams and a phone rem
 
 ## Play it
 
-**Windows:** double-click `start-trivia.bat`. The first run sets everything up (needs [Python](https://www.python.org) 3.12+ and [Node.js](https://nodejs.org) 20+).
+**Windows:** double-click `start-trivia.bat`. The first run sets everything up (needs [Python](https://www.python.org) 3.12+ and [Node.js](https://nodejs.org) 22.22+).
 
 Then:
 
@@ -41,6 +41,7 @@ cd frontend
 npm install
 npm run dev          # http://localhost:5173, forwards /api to the server on :3000
 npm run typecheck
+npm test             # frontend tests (Vitest)
 npm run build        # into frontend/dist, which the server then serves on :3000
 npm run gen:types    # after changing backend/trivvoly/quiz.py or views.py
 ```

@@ -69,9 +69,9 @@ Steps (the game keeps working at each one; the old Node app stays until the swit
 All three steps are done. Follow-ups:
 
 - ~~**View types**~~ Done: the views the server sends are described in `backend/trivvoly/views.py`; `tests/test_views.py` plays whole games and checks every view against them (unknown fields fail), and the frontend's types are generated from them with the quiz types (`frontend/src/lib/contract.gen.ts`).
-- **Frontend unit tests**: left out for now because the test runner that supports Node 20.11 (Vitest 3) has known vulnerabilities; add Vitest 5 after moving to Node 22. Until then the frontend is checked by TypeScript and by full browser rehearsals.
+- ~~**Frontend unit tests**~~ Done on Node 22 with Vitest 5 (`npm test`).
 - **Docker image**: rewritten for the new stack but not yet built and run here (Docker Desktop wasn't running).
-- **Node 22**: upgrading would also allow the newest Vite and React Router.
+- ~~**Node 22**~~ Done: Node 22.23, Vite 8, React Router 8. `frontend/.npmrc` works around an npm crash on Vitest's optional peers.
 
 ## Where quizzes live
 

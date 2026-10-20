@@ -1,6 +1,6 @@
 @echo off
 rem Double-click to start Trivvoly. Close this window to stop it.
-rem First run: sets up the Python game server and builds the screens (needs Python 3.12+ and Node.js 20+).
+rem First run: sets up the Python game server and builds the screens (needs Python 3.12+ and Node.js 22+).
 cd /d "%~dp0"
 
 if not exist backend\.venv\Scripts\python.exe (
@@ -26,5 +26,5 @@ exit /b
 popd
 :fail
 echo.
-echo Something went wrong setting up Trivvoly. Check that Python 3.12+ and Node.js 20+ are installed.
+echo Something went wrong setting up Trivvoly. Check that Python 3.12+ and Node.js 22+ are installed.
 pause
