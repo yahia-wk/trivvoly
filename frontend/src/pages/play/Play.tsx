@@ -444,7 +444,7 @@ function MarkSheet({ items, current, send, say }: { items: MarkItem[]; current?:
   );
 }
 
-function Standings({ list, me }: { list?: Standing[]; me: string }) {
+function Standings({ list, me }: { list?: Standing[] | null; me: string }) {
   if (!list?.length) return <p className="muted">No scores yet.</p>;
   return (
     <ol className="board">

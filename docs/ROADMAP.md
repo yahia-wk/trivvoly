@@ -68,7 +68,7 @@ Steps (the game keeps working at each one; the old Node app stays until the swit
 
 All three steps are done. Follow-ups:
 
-- **View types**: the quiz types are generated from Pydantic, but the views the server sends (`host_view`, `player_view`) are still plain dicts mirrored by hand in `frontend/src/lib/types.ts`. Turning them into Pydantic models would let those be generated too.
+- ~~**View types**~~ Done: the views the server sends are described in `backend/trivvoly/views.py`; `tests/test_views.py` plays whole games and checks every view against them (unknown fields fail), and the frontend's types are generated from them with the quiz types (`frontend/src/lib/contract.gen.ts`).
 - **Frontend unit tests**: left out for now because the test runner that supports Node 20.11 (Vitest 3) has known vulnerabilities; add Vitest 5 after moving to Node 22. Until then the frontend is checked by TypeScript and by full browser rehearsals.
 - **Docker image**: rewritten for the new stack but not yet built and run here (Docker Desktop wasn't running).
 - **Node 22**: upgrading would also allow the newest Vite and React Router.

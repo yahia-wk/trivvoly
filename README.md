@@ -42,14 +42,14 @@ npm install
 npm run dev          # http://localhost:5173, forwards /api to the server on :3000
 npm run typecheck
 npm run build        # into frontend/dist, which the server then serves on :3000
-npm run gen:types    # after changing backend/trivvoly/quiz.py
+npm run gen:types    # after changing backend/trivvoly/quiz.py or views.py
 ```
 
 ### How it fits together
 
 - **The server owns every game.** Each room's state (slide, timer, reveals, answers, marks, disputes, scores) lives in [`backend/trivvoly/game.py`](backend/trivvoly/game.py). The TV, the team phones and the quizmaster's remote each hold one WebSocket, send commands, and draw the view the server sends them. Teams only ever receive public information.
 - **Backend** ([`backend/trivvoly/`](backend/trivvoly/)): `quiz.py` (the quiz format, Pydantic), `game.py` (state machine and views), `marking.py` (auto-mark suggestions), `moderation.py` (offensive-word filter), `rooms.py` + `db.py` (rooms saved with SQLAlchemy), `app.py` + `security.py` (REST, WebSockets, protections).
-- **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels). Shared code is in `lib/`; quiz types are generated from the backend into `lib/quiz.gen.ts`.
+- **Frontend** ([`frontend/src/`](frontend/src/)): `pages/landing`, `pages/play` (team phone), `pages/remote` (quizmaster phone), `pages/show` (the TV: slides, sound, lights, panels). Shared code is in `lib/`; all types for what the server sends are generated from the backend into `lib/contract.gen.ts`.
 - **Styling:** the existing screens use plain CSS scoped per screen on shared tokens (`styles/tokens.css`); Tailwind utilities are available for new screens.
 
 ## Hosting it online
