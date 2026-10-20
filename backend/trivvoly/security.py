@@ -78,6 +78,7 @@ LIMITS = {
     "miss": (30, MIN),          # looking up room codes that don't exist (stops code guessing)
     "connect": (300, MIN),      # live connections per address
     "player_msg": (120, MIN),   # messages per team connection
+    "check": (240, MIN),        # quiz-builder checks per address (one per pause in typing)
     "host_msg": (1200, MIN),    # messages per quizmaster connection
 }
 

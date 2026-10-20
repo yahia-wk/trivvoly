@@ -34,7 +34,7 @@ New work:
 | **0** | Questions move into quiz files (`quizzes/*.json`) with a strict validator; built-in assets (flags) stay in code and quizzes refer to them by id; every quiz text shown on screen is escaped; tidy folder layout; tests. | **Done** |
 | **1** | Rooms: many games per server, room codes + QR, per-room host secrets, room expiry, choose a built-in quiz or upload a quiz file. Deploy one server online with HTTPS. No accounts yet. | **Built and tested**; deploying is next (needs a hosting account) |
 | **1.5** | **Rebuild** on the stack above, keeping every feature and the look. See "The rebuild" below. | **Done** (follow-ups listed there) |
-| **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | |
+| **2** | Quizmaster accounts, quiz builder, saved quizzes, import from spreadsheet/JSON. Postgres. | Quiz builder **done** (`/build`: live checking by the server's rules, TV preview, drafts kept in the browser, download or play). Accounts and saved quizzes next. |
 | **3** | Question bank: categories, difficulty, "generate a quiz", multiple-choice question type with automatic scoring. | |
 | **4** | Community: public quizzes, sharing, ratings, reporting, moderation tools. | |
 
@@ -46,7 +46,7 @@ Layout:
 
 ```
 backend/    FastAPI app (package `trivvoly`): quiz models, game state machine, rooms, realtime, security, moderation; pytest suite
-frontend/   React + TypeScript + Vite app: start page, team phone, TV show, remote (later: builder, accounts)
+frontend/   React + TypeScript + Vite app: start page, team phone, TV show, remote, quiz builder (later: accounts)
 quizzes/    built-in quizzes (unchanged format)
 shared/     assets used by both sides (flag library as JSON)
 docs/

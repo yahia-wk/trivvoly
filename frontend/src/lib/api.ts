@@ -30,3 +30,6 @@ export const claimRoom = (code: string, key: string) => post<{ ok: true }>(`/api
 export const joinRoom = (code: string, name: string) => post<{ id: string; name: string }>(`/api/rooms/${code}/join`, { name });
 
 export const ROOM_CODE = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/; // codes never use O, 0, I or 1
+
+export const loadBuiltInQuiz = (id: string) => call<unknown>(`/api/quizzes/${encodeURIComponent(id)}`);
+export const checkQuiz = (quiz: unknown) => post<{ ok: boolean; problems: string[]; summary?: { rounds: number; questions: number } }>('/api/quizzes/check', { quiz });

@@ -1,0 +1,69 @@
+/* Quiz builder. Scoped to .page-build; the TV preview inside keeps the TV's own styles. */
+.page-build { min-height: 100vh; background: var(--velvet-deep); color: var(--cream); font-family: var(--text); }
+
+.page-build .bar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 20px; background: rgba(18, 4, 14, .97); border-bottom: 1px solid rgba(245, 184, 61, .3); }
+.page-build .brand { font-family: var(--display); color: var(--bulb); font-size: 20px; text-decoration: none; }
+.page-build .crumb { font-weight: 700; opacity: .8; }
+.page-build .st { font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.page-build .st.ok { background: rgba(127, 224, 194, .18); color: var(--mint); }
+.page-build .st.bad { background: rgba(226, 56, 77, .2); color: #ffb3bc; }
+.page-build .actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.page-build .note-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 20px 0; padding: 10px 14px; border-radius: 10px; background: rgba(245, 184, 61, .12); border: 1px solid rgba(245, 184, 61, .4); }
+
+.page-build .btn { padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(255, 233, 168, .35); background: transparent; color: var(--cream); font-weight: 600; font-size: 14px; cursor: pointer; }
+.page-build .btn:hover { border-color: var(--gold); }
+.page-build .btn.primary { background: var(--gold); color: var(--velvet-deep); border-color: var(--gold); }
+.page-build .btn:disabled { opacity: .45; cursor: default; }
+.page-build select.btn { background: var(--velvet-deep); }
+.page-build .mini { padding: 4px 9px; border-radius: 8px; border: 1px solid rgba(255, 233, 168, .3); background: transparent; color: var(--cream); font-size: 13px; cursor: pointer; }
+.page-build .mini:disabled { opacity: .35; cursor: default; }
+.page-build .mini.danger { color: #ffb3bc; border-color: rgba(226, 56, 77, .6); }
+
+.page-build .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(300px, 440px); gap: 20px; padding: 20px; align-items: start; }
+@media (max-width: 1200px) { .page-build .layout { grid-template-columns: 220px minmax(0, 1fr); } .page-build .side { grid-column: 1 / -1; position: static; } }
+@media (max-width: 760px) { .page-build .layout { grid-template-columns: minmax(0, 1fr); padding: 16px; } .page-build .outline-nav { position: static; } }
+
+.page-build .outline-nav { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 6px; }
+.page-build .ol { display: grid; grid-template-columns: 1fr auto; text-align: left; gap: 2px 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 233, 168, .15); background: rgba(0, 0, 0, .2); color: var(--cream); cursor: pointer; }
+.page-build .ol.on { border-color: var(--gold); background: rgba(245, 184, 61, .12); }
+.page-build .ol-label { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-build .ol-sub { grid-column: 1; font-size: 12px; opacity: .7; }
+.page-build .ol-bad { grid-row: 1 / span 2; grid-column: 2; align-self: center; min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--cherry); color: #fff; font-size: 12px; font-weight: 700; text-align: center; line-height: 22px; }
+.page-build .add { margin-top: 6px; }
+
+.page-build .ed h2 { font-family: var(--display); font-weight: 400; color: var(--bulb); font-size: 26px; margin: 0 0 14px; }
+.page-build .ed h3 { color: var(--gold); font-size: 16px; margin: 22px 0 10px; }
+.page-build .ed .sub, .page-build .side-note, .page-build .ed .note { font-size: 13px; opacity: .75; font-weight: 400; }
+.page-build .ed .note { font-size: 14px; margin: 0 0 14px; line-height: 1.5; max-width: 80ch; }
+.page-build .round-tools { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+.page-build .card { padding: 14px; margin-bottom: 12px; border-radius: 14px; background: rgba(15, 59, 71, .5); border: 1px solid rgba(245, 184, 61, .25); }
+.page-build .card.has-problems { border-color: rgba(226, 56, 77, .7); }
+.page-build .card.previewing { box-shadow: 0 0 0 2px var(--gold); }
+.page-build .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.page-build .card-head .tools { margin-left: auto; }
+.page-build .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.page-build .row { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 8px; align-items: flex-start; }
+
+.page-build .fld { display: flex; flex-direction: column; gap: 4px; flex: 0 1 180px; min-width: 120px; }
+.page-build .fld.wide { flex: 1 1 280px; }
+.page-build .lbl { font-size: 13px; font-weight: 600; opacity: .85; }
+.page-build .lbl em { font-style: normal; opacity: .7; margin-left: 6px; }
+.page-build .inp { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid rgba(255, 233, 168, .25); background: #1a0614; color: var(--cream); font: inherit; font-size: 15px; }
+.page-build textarea.inp { resize: vertical; min-height: 44px; }
+.page-build .inp:focus { outline: none; border-color: var(--gold); }
+.page-build .inp.bad { border-color: var(--cherry); }
+.page-build .err { color: #ffb3bc; font-size: 13px; font-weight: 600; }
+.page-build .hint { font-size: 12px; opacity: .65; }
+.page-build .side { align-items: stretch; position: sticky; top: 80px; display: flex; flex-direction: column; gap: 10px; }
+.page-build .side-head { display: flex; align-items: center; justify-content: space-between; }
+.page-build .side h3 { color: var(--gold); font-size: 15px; margin: 10px 0 0; }
+.page-build .toggle { display: inline-flex; border: 1px solid rgba(255, 233, 168, .3); border-radius: 999px; overflow: hidden; }
+.page-build .toggle button { padding: 5px 12px; border: 0; background: transparent; color: var(--cream); font-size: 13px; cursor: pointer; }
+.page-build .toggle button.on { background: var(--gold); color: var(--velvet-deep); font-weight: 700; }
+.page-build .probs { margin: 0; padding-left: 18px; font-size: 13px; color: #ffb3bc; max-height: 260px; overflow: auto; }
+.page-build .probs b { color: var(--cream); }
+.page-build .flag-thumb { align-self: flex-end; }
+.page-build .ab { align-self: center; font-family: var(--display); color: var(--gold); font-size: 22px; width: 24px; }
+
+/* The TV preview: the real TV styles, in a box instead of the whole window */
+.page-tv.tv-preview { position: relative; inset: auto; width: 100%; height: auto; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, .4); }

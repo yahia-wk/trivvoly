@@ -217,6 +217,14 @@ class Quiz(Strict):
         so the frontend's generated types can tell question types apart."""
         return self.model_dump(exclude_none=True)
 
+    def file_dict(self) -> dict[str, Any]:
+        """The quiz in the file format (as in quizzes/*.json): questions without the internal kind tag."""
+        d = self.model_dump(exclude_none=True)
+        for r in d["rounds"]:
+            for q in r["questions"]:
+                q.pop("kind", None)
+        return d
+
     @property
     def question_count(self) -> int:
         return sum(len(r.questions) for r in self.rounds)

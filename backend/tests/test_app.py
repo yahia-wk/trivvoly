@@ -177,3 +177,17 @@ def test_games_survive_a_restart(make):
 def test_guessing_room_codes_gets_rate_limited(client):
     statuses = [client.get(f"/r/ZZZZZ{c}", follow_redirects=False).status_code for c in "ABCDEFGHJKLMNPQRSTUVWXYZ23456789ABCD"]
     assert 429 in statuses
+
+
+def test_the_quiz_builder_can_check_quizzes_and_load_built_in_ones(client):
+    good = client.get("/api/quizzes/classic")
+    assert good.status_code == 200
+    quiz = good.json()
+    assert quiz["title"] == "Trivia Night" and "kind" not in quiz["rounds"][0]["questions"][0], "file format, no internal tags"
+    assert client.get("/api/quizzes/nope").status_code == 404
+    ok = client.post("/api/quizzes/check", json={"quiz": quiz}).json()
+    assert ok == {"ok": True, "problems": [], "summary": {"rounds": 7, "questions": 56}}
+    del quiz["rounds"][0]["questions"][0]["a"]
+    bad = client.post("/api/quizzes/check", json={"quiz": quiz}).json()
+    assert bad["ok"] is False and bad["problems"] == ["quiz.rounds[0].questions[0].a is required"]
+    assert client.post("/api/quizzes/check", json={"quiz": "x" * 10}).json()["ok"] is False

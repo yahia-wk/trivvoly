@@ -108,7 +108,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         rooms.save_dirty()
 
     app = FastAPI(title="Trivvoly", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(BodyLimit, overrides={"/api/rooms": MAX_QUIZ_BYTES + 64 * 1024})
+    app.add_middleware(BodyLimit, overrides={"/api/rooms": MAX_QUIZ_BYTES + 64 * 1024, "/api/quizzes/check": MAX_QUIZ_BYTES + 64 * 1024})
     app.add_middleware(SecurityHeaders)
     app.state.rooms, app.state.library, app.state.warnings, app.state.restored = rooms, library, warnings, restored
 
@@ -163,6 +163,23 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     @app.get("/api/quizzes")
     async def quizzes() -> dict:
         return {"quizzes": [q.summary() for q in library.values()]}
+
+    @app.get("/api/quizzes/{quiz_id}")
+    async def quiz_file(quiz_id: str) -> Response:
+        """A built-in quiz in the file format, as a starting point for the quiz builder."""
+        entry = library.get(quiz_id)
+        return JSONResponse(entry.quiz.file_dict()) if entry else error(404, "That quiz doesn’t exist.")
+
+    @app.post("/api/quizzes/check")
+    async def check_quiz(request: Request) -> Response:
+        """The quiz builder's live check: the same rules every quiz must pass."""
+        if limited("check", client_ip(request.scope, config)):
+            return error(429, "Slow down a little and try again in a minute.")
+        body = await json_body(request)
+        quiz, problems = validate_quiz(body.get("quiz"))
+        if quiz is None:
+            return JSONResponse({"ok": False, "problems": problems})
+        return JSONResponse({"ok": True, "problems": [], "summary": {"rounds": len(quiz.rounds), "questions": quiz.question_count}})
 
     @app.post("/api/rooms")
     async def create_room(request: Request) -> Response:

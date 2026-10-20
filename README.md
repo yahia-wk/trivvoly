@@ -22,7 +22,9 @@ Questions → **Pens down** (answers lock, teams are paired up to mark each othe
 
 ## Write your own quiz
 
-Quizzes are JSON files. Copy [`quizzes/classic.json`](quizzes/classic.json), change the questions, and either drop it into `quizzes/` (it appears in the list) or upload it on the start page. Every quiz is checked; if something is wrong you get a list of exactly what and where. A broken file in `quizzes/` is skipped with a warning, never fatal.
+The easiest way is the **quiz builder** at `/build` (linked from the start page): write the rounds in your browser, see each question as the TV will show it, fix anything it flags, then start a game or download the file. Your draft is kept in that browser until you start a new one.
+
+Under the hood, quizzes are JSON files. You can also copy [`quizzes/classic.json`](quizzes/classic.json), change the questions, and either drop it into `quizzes/` (it appears in the list) or upload it on the start page. Every quiz is checked; if something is wrong you get a list of exactly what and where. A broken file in `quizzes/` is skipped with a warning, never fatal.
 
 Round kinds: `standard` (question + answer), `flag` (a built-in flag, or emoji + question), `music` (a tune played live, or emoji clues; bonus point for the artist), `emoji`, `vowels` (missing-vowels puzzles) and `versus` (which came first, A or B). The rules and limits are in [`backend/trivvoly/quiz.py`](backend/trivvoly/quiz.py).
 

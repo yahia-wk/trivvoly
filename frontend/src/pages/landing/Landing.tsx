@@ -1,6 +1,6 @@
 // Start page: join a game with its room code, or host a quiz (built-in or uploaded).
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ApiError, ROOM_CODE, createRoom, listQuizzes, type QuizSummary } from '../../lib/api';
 import './landing.css';
 
@@ -99,7 +99,7 @@ export default function Landing() {
             <div className="upload">
               <label className="quiz" style={{ border: 0, background: 'none', padding: 0 }}>
                 <input type="radio" name="quiz" value="__upload" checked={pick === '__upload'} onChange={() => setPick('__upload')} />
-                <span><b>Upload your own quiz</b><span>A .json quiz file. See the guide on GitHub.</span></span>
+                <span><b>Upload your own quiz</b><span>A .json quiz file, e.g. one from the quiz builder.</span></span>
               </label>
               <input type="file" accept=".json,application/json" aria-label="Quiz file" onChange={e => chooseFile(e.target.files?.[0])} />
               {upload?.error && <p className="err">{upload.error}</p>}
@@ -107,6 +107,7 @@ export default function Landing() {
               {problems.length > 0 && <><p className="err">This quiz needs a few fixes:</p><ul className="problems">{problems.map(p => <li key={p}>{p}</li>)}</ul></>}
             </div>
             <button className="btn primary block" type="button" onClick={host} disabled={busy}>{busy ? 'Starting…' : 'Start a game'}</button>
+            <p className="muted" style={{ marginTop: 12, textAlign: 'center' }}>Want your own questions? <Link to="/build" style={{ color: 'var(--gold)' }}>Write a quiz in the quiz builder</Link></p>
             <div className="err" role="alert">{hostError}</div>
           </section>
         </div>
