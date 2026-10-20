@@ -1,12 +1,12 @@
 # Trivvoly with a Postgres database: `docker compose up --build`, then open http://localhost:3000.
-# For a real server, put HTTPS in front of it and set the variables below (e.g. in a .env file
-# next to this one). See docs/HOSTING.md.
+# First copy .env.example to .env and set POSTGRES_PASSWORD (compose won't start without it).
+# For a real server, put HTTPS in front of it and fill in the rest of .env. See docs/HOSTING.md.
 services:
   app:
     build: .
     ports: ["${PORT:-3000}:3000"]
     environment:
-      DATABASE_URL: postgresql+psycopg://trivvoly:${POSTGRES_PASSWORD:-trivvoly}@db:5432/trivvoly
+      DATABASE_URL: postgresql+psycopg://trivvoly:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/trivvoly
       PUBLIC_URL: ${PUBLIC_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-1}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -26,7 +26,7 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: trivvoly
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trivvoly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: trivvoly
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:

@@ -7,19 +7,11 @@ Trivvoly is one container: the game server, which also serves the screens. Run i
 [`docker-compose.yml`](../docker-compose.yml) runs Trivvoly with a Postgres database:
 
 ```
+cp .env.example .env     # then set POSTGRES_PASSWORD (and, online, the rest)
 docker compose up --build -d
 ```
 
-Put the settings below in a `.env` file next to `docker-compose.yml`. Compose reads it automatically. Never commit it.
-
-```
-PUBLIC_URL=https://trivvoly.example.com
-POSTGRES_PASSWORD=a-long-random-password
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-MAIL_FROM=Trivvoly <signin@trivvoly.example.com>
-RESEND_API_KEY=...
-```
+Compose reads `.env` automatically and won't start until `POSTGRES_PASSWORD` is set: there is no default password. `.env` is in `.gitignore`, so it isn't committed. Keep it that way. One way to make a strong password: `python -c "import secrets; print(secrets.token_urlsafe(24))"`.
 
 The [Dockerfile](../Dockerfile) on its own works too, with SQLite in a volume mounted at `/data`.
 

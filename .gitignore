@@ -16,6 +16,11 @@ __pycache__/
 .pytest_cache/
 trivvoly.db
 
+# Secrets: settings for docker compose (.env.example is the template)
+.env
+.env.*
+!.env.example
+
 # Frontend
 frontend/node_modules/
 frontend/dist/
