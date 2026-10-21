@@ -192,7 +192,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     @app.get("/api/site")
     async def site() -> dict:
         """For the start page: a notice from the admins, and whether new games are paused."""
-        return switches.public()
+        return {**switches.public(), "contact": config.contact_email}
 
     @app.get("/api/quizzes")
     async def quizzes() -> dict:
@@ -404,7 +404,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
         return True
 
     admin_routes(app, config, accounts, rooms, AdminHooks(end_room=close_room, remove_team=remove_team), limited)
-    app.add_middleware(RequestLog, trust_proxy=config.trust_proxy, ip_of=lambda scope: client_ip(scope, config))
+    app.add_middleware(RequestLog, ip_of=lambda scope: client_ip(scope, config))
 
     # ---------- The frontend (built React app) ----------
     dist = config.frontend_dir
@@ -423,6 +423,7 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     @app.get("/signin/email")
     @app.get("/account")
     @app.get("/admin")
+    @app.get("/privacy")
     async def home() -> Response:
         return spa()
 

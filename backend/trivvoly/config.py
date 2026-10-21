@@ -41,6 +41,8 @@ class Config:
     login_link_minutes: int = 15        # how long an emailed sign-in link works
     max_saved_quizzes: int = field(default_factory=lambda: _int("TRIVVOLY_MAX_SAVED_QUIZZES", 100))
 
+    # Shown on the privacy page, for questions about people's data
+    contact_email: str = field(default_factory=lambda: os.environ.get("CONTACT_EMAIL", ""))
     # Admins: accounts whose (verified) email is listed here, comma-separated. Only this setting can
     # make someone an admin, so nothing stored in the database can.
     admin_emails: frozenset[str] = field(default_factory=lambda: frozenset(

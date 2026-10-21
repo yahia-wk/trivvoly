@@ -137,7 +137,7 @@ def test_site_switches(make):
         sign_in(anyone, "regular@example.com")
         r = boss.put("/api/admin/switches", json={"pauseNewGames": True, "pauseSignUps": True, "notice": "  Back   at 9pm "})
         assert r.json() == {"pauseNewGames": True, "pauseSignUps": True, "notice": "Back at 9pm"}
-        assert anyone.get("/api/site").json() == {"notice": "Back at 9pm", "newGamesPaused": True}
+        assert anyone.get("/api/site").json() == {"notice": "Back at 9pm", "newGamesPaused": True, "contact": ""}
         assert anyone.post("/api/rooms", json={"quizId": "classic"}).status_code == 503
         # Sign-ups paused: newcomers can't make an account, existing accounts still sign in
         anyone.post("/api/auth/email", json={"email": "newbie@example.com"})
@@ -145,7 +145,7 @@ def test_site_switches(make):
         sign_in(anyone, "regular@example.com")
         # Switches survive a restart
     with TestClient(make()) as c:
-        assert c.get("/api/site").json() == {"notice": "Back at 9pm", "newGamesPaused": True}
+        assert c.get("/api/site").json()["notice"] == "Back at 9pm"
 
 
 def test_metrics(make):

@@ -21,6 +21,9 @@ trivvoly.db
 .env.*
 !.env.example
 
+# Database backups made on a server (docker-compose.prod.yml)
+backups/
+
 # Frontend
 frontend/node_modules/
 frontend/dist/

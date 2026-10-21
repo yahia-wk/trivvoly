@@ -1,0 +1,6 @@
+# Scripts and configs that run on Linux servers must keep Unix line endings
+*.sh text eol=lf
+deploy/Caddyfile text eol=lf
+*.yml text eol=lf
+.env.example text eol=lf
+Dockerfile text eol=lf

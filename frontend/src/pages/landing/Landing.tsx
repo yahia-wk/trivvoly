@@ -23,7 +23,7 @@ export default function Landing() {
   const [busy, setBusy] = useState(false);
   const me = useMe();
   const [mine, setMine] = useState<SavedQuiz[]>([]);
-  const [site, setSite] = useState<{ notice: string; newGamesPaused: boolean }>({ notice: '', newGamesPaused: false });
+  const [site, setSite] = useState({ notice: '', newGamesPaused: false, contact: '' });
 
   useEffect(() => {
     if (params.has('missing')) setParams({}, { replace: true });
@@ -141,7 +141,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <footer>Trivvoly is free and open source. <a href="https://github.com/yahia-wk/trivvoly" rel="noopener">Code on GitHub</a></footer>
+        <footer>Trivvoly is free and open source. <a href="https://github.com/yahia-wk/trivvoly" rel="noopener">Code on GitHub</a> · <Link to="/privacy">Privacy</Link></footer>
       </div>
     </div>
   );

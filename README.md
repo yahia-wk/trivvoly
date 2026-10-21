@@ -63,7 +63,7 @@ Admins (the addresses in `ADMIN_EMAILS`) get an admin area at `/admin`: live gam
 
 ## Hosting it online
 
-`docker compose up --build` runs Trivvoly with a Postgres database. Put it behind HTTPS and set `PUBLIC_URL`. [docs/HOSTING.md](docs/HOSTING.md) has every setting, and step-by-step setup for Google sign-in and sign-in emails.
+**[docs/DEPLOY.md](docs/DEPLOY.md)** goes step by step from nothing to a live site on a small Hetzner server: HTTPS (Caddy), Postgres, nightly backups, a firewall and automatic security updates, set up by [`deploy/setup-server.sh`](deploy/setup-server.sh) and updated with [`deploy/deploy.sh`](deploy/deploy.sh). [docs/HOSTING.md](docs/HOSTING.md) has every setting.
 
 ## Safety
 

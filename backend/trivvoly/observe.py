@@ -9,20 +9,18 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-import re
 import secrets
 import sys
 import time
 from collections import deque
 from typing import Any, Callable
 
-from starlette.datastructures import Headers, MutableHeaders
+from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 log = logging.getLogger("trivvoly")
 request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 STARTED = time.time()
-_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _METHODS = {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 _RECORD_FIELDS = set(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {"message", "asctime"}
 
@@ -169,17 +167,17 @@ for _name, _text in [
 # ---------- per-request logging ----------
 
 class RequestLog:
-    """Gives every request an ID (sent back as X-Request-ID and added to its log lines), then logs
-    method, path (never the query string), status and time, and counts it."""
+    """Gives every request a new ID (sent back as X-Request-ID and added to its log lines), then logs
+    method, path (never the query string), status and time, and counts it. The ID is always made
+    here: one sent by the client could be anything, and proxies pass it through."""
 
-    def __init__(self, app: ASGIApp, trust_proxy: bool = False, ip_of: Callable[[Scope], str] | None = None) -> None:
-        self.app, self.trust_proxy, self.ip_of = app, trust_proxy, ip_of
+    def __init__(self, app: ASGIApp, ip_of: Callable[[Scope], str] | None = None) -> None:
+        self.app, self.ip_of = app, ip_of
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        incoming = Headers(scope=scope).get("x-request-id", "")
-        rid = incoming if self.trust_proxy and _REQUEST_ID.match(incoming) else secrets.token_hex(8)
+        rid = secrets.token_hex(8)
         token = request_id.set(rid)
         start, status = time.perf_counter(), 500
 

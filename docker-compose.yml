@@ -1,10 +1,12 @@
 # Trivvoly with a Postgres database: `docker compose up --build`, then open http://localhost:3000.
 # First copy .env.example to .env and set POSTGRES_PASSWORD (compose won't start without it).
-# For a real server, put HTTPS in front of it and fill in the rest of .env. See docs/HOSTING.md.
+# On a server, add docker-compose.prod.yml for HTTPS (see docs/DEPLOY.md).
 services:
   app:
     build: .
-    ports: ["${PORT:-3000}:3000"]
+    # Only this computer can reach it directly (Docker's published ports skip the firewall);
+    # online, Caddy in docker-compose.prod.yml is the way in
+    ports: ["127.0.0.1:${PORT:-3000}:3000"]
     environment:
       DATABASE_URL: postgresql+psycopg://trivvoly:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/trivvoly
       PUBLIC_URL: ${PUBLIC_URL:-}
@@ -18,6 +20,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:

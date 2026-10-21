@@ -70,7 +70,7 @@ export default function SignIn() {
           )}
           <div className="err" role="alert">{error}</div>
         </section>
-        <p className="fine">We keep your email address and name to run your account, and nothing else about you. You can delete your account, and everything in it, at any time.</p>
+        <p className="fine">We keep your email address and name to run your account, and nothing else about you. You can delete your account, and everything in it, at any time. <Link to="/privacy" style={{ color: 'var(--gold)' }}>Privacy</Link></p>
       </div>
     </div>
   );

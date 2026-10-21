@@ -40,7 +40,7 @@ export const checkQuiz = (quiz: unknown) => post<{ ok: boolean; problems: string
 export interface User { name: string; email: string; google: boolean; admin: boolean; adminUntil: number | null }
 export interface SavedQuiz { id: string; title: string; ok: boolean; rounds: number; questions: number; updatedAt: number }
 
-export const siteInfo = () => call<{ notice: string; newGamesPaused: boolean }>('/api/site');
+export const siteInfo = () => call<{ notice: string; newGamesPaused: boolean; contact: string }>('/api/site');
 export const authOptions = () => call<{ google: boolean; email: boolean }>('/api/auth/options');
 export const getMe = () => call<{ user: User | null }>('/api/me');
 export const renameMe = (name: string) => send<{ user: User }>('PATCH', '/api/me', { name });

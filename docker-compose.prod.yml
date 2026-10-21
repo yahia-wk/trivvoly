@@ -1,0 +1,50 @@
+# Online: HTTPS in front of the app, and nightly database backups. Used with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# (deploy/deploy.sh does this). Needs DOMAIN and ACME_EMAIL in .env. See docs/DEPLOY.md.
+services:
+  app:
+    environment:
+      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN in .env}
+      TRUST_PROXY: "1"
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (Let's Encrypt writes here if a certificate has trouble)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates: keep them, or Let's Encrypt limits kick in
+      - caddy_config:/config
+    depends_on: [app]
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+  backup:
+    # Once a day: a compressed copy of the database in ./backups, keeping the last 14
+    image: postgres:17-alpine
+    environment:
+      PGHOST: db
+      PGUSER: trivvoly
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATABASE: trivvoly
+    volumes: ["./backups:/backups"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/trivvoly-$$(date -u +%Y-%m-%d-%H%M).sql.gz
+          if pg_dump --no-owner | gzip > "$$f.part"; then mv "$$f.part" "$$f"; echo "backup: $$f"; else rm -f "$$f.part"; echo "backup FAILED"; fi
+          ls -1t /backups/trivvoly-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm -f
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+volumes:
+  caddy_data:
+  caddy_config:
