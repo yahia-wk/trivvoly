@@ -201,3 +201,28 @@ $C start app backup
 - **Restart:** `$C restart app`.
 
 The server restarts itself at 05:00 when a security update needs it. Running games survive restarts.
+
+## Changing your SSH key (a new PC)
+
+The server keeps a list of allowed keys in `/root/.ssh/authorized_keys`, one per line. You can have several (a laptop and a desktop) and remove any of them.
+
+**New PC, old one still works:**
+1. On the new PC, make a key and show its public line (Part 1, steps 2 and 3).
+2. Get that line to the old PC (email, chat or USB stick are fine: it's the public half).
+3. On the old PC, paste it between the quotes:
+
+   ```
+   ssh root@65.108.12.34 "echo 'ssh-ed25519 AAAA...the new line... trivvoly' >> ~/.ssh/authorized_keys"
+   ```
+
+4. Check the new PC gets in: `ssh root@65.108.12.34`.
+5. Optional: remove the old PC's key. On the server, run `nano ~/.ssh/authorized_keys` and delete that line.
+
+Copying the key files (`id_ed25519` and `id_ed25519.pub` in `C:\Users\<you>\.ssh\`) to the new PC also works. `id_ed25519` is the secret half, though: move it on a USB stick only, never by email or chat.
+
+**Old PC lost or broken:**
+1. In the Hetzner console, open the server, then **Rescue → Reset root password**.
+2. Click the **Console** button (`>_`) and log in as `root` with that password. Passwords are only switched off for SSH, not for this console.
+3. Add the new key's line to `~/.ssh/authorized_keys`, and delete the lost PC's line.
+
+Adding a key to Hetzner's own **SSH keys** list doesn't change a server that already exists. That list is only used when a server is created.
