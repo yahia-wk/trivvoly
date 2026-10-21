@@ -1,6 +1,7 @@
 """The admin area: see what's happening, step in when something's wrong.
 
-Admins are the accounts listed in ADMIN_EMAILS (after the usual sign-in). To everyone else every
+Admins are the accounts listed in ADMIN_EMAILS (after the usual sign-in), and only within a few hours
+of signing in (ADMIN_SESSION_HOURS); after that they're asked to sign in again. To everyone else every
 admin endpoint answers 404, as if it didn't exist. Every admin action is written to the admin log.
 Admins see titles and counts of people's saved quizzes, not their contents.
 """
@@ -55,6 +56,8 @@ def admin_routes(app: FastAPI, config: Config, accounts: Accounts, rooms: RoomSt
         user = await accounts.current_user(request)
         if not accounts.is_admin(user):
             raise RoomError(404, NOT_FOUND)
+        if not accounts.is_fresh_admin(user):
+            raise RoomError(401, "For safety, the admin area needs a recent sign-in. Please sign in again.")
         if limited("admin", user.id):
             raise RoomError(429, "Slow down a little.")
         return user
@@ -283,7 +286,7 @@ def admin_routes(app: FastAPI, config: Config, accounts: Accounts, rooms: RoomSt
         auth = request.headers.get("authorization", "")
         token_ok = bool(config.metrics_token) and secrets.compare_digest(auth.encode(), f"Bearer {config.metrics_token}".encode())
         if not token_ok:
-            if limited("miss", client_ip(request.scope, config)) or not accounts.is_admin(await accounts.current_user(request)):
+            if limited("miss", client_ip(request.scope, config)) or not accounts.is_fresh_admin(await accounts.current_user(request)):
                 return PlainTextResponse(NOT_FOUND, status_code=404)
         return PlainTextResponse(metrics.render(), media_type="text/plain; version=0.0.4")
 

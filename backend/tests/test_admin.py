@@ -202,3 +202,26 @@ def test_clients_cant_grow_the_metrics(make):
             c.request(f"WEIRD{i}", "/api/quizzes")
         text = c.get("/metrics", headers={"authorization": "Bearer t"}).text
         assert "WEIRD" not in text and 'method="OTHER"' in text
+
+
+def test_the_admin_area_needs_a_recent_sign_in(app):
+    """A stolen 30-day session cookie isn't enough: admin access lasts 12 hours from signing in."""
+    import time
+    from sqlalchemy import update
+    from sqlalchemy.orm import Session
+    from trivvoly.db import SessionRow
+    with TestClient(app) as c:
+        sign_in(c, BOSS)
+        me = c.get("/api/me").json()["user"]
+        assert me["admin"] is True and me["adminUntil"] == pytest.approx(time.time() + 12 * 3600, abs=60)
+        assert c.get("/api/admin/overview").status_code == 200
+        with Session(app.state.accounts.engine) as db:  # pretend this sign-in was 13 hours ago
+            db.execute(update(SessionRow).values(created_at=time.time() - 13 * 3600))
+            db.commit()
+        assert c.get("/api/me").json()["user"]["email"] == BOSS  # still signed in for everything else...
+        r = c.get("/api/admin/overview")
+        assert r.status_code == 401 and "sign in again" in r.json()["error"]  # ...but not for admin
+        assert c.post("/api/admin/rooms/ABCDEF/end").status_code == 401
+        assert c.get("/metrics").status_code == 404
+        sign_in(c, BOSS)  # signing in again opens it
+        assert c.get("/api/admin/overview").status_code == 200

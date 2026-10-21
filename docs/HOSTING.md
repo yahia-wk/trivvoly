@@ -29,6 +29,7 @@ The [Dockerfile](../Dockerfile) on its own works too, with SQLite in a volume mo
 | `TRIVVOLY_MAX_ROOMS`, `TRIVVOLY_MAX_ROOMS_PER_IP` | How many games can run at once, in all and per address (defaults 300 and 5). |
 | `TRIVVOLY_MAX_SAVED_QUIZZES` | Quizzes per account (default 100). |
 | `ADMIN_EMAILS` | Comma-separated email addresses whose accounts can open the admin area at `/admin`. See below. |
+| `ADMIN_SESSION_HOURS` | How long admin access lasts after signing in (default 12). After that the admin area asks you to sign in again. |
 | `LOG_FORMAT` | `text` (readable in a terminal) or `json` (one object per line, for log search; the Docker image's default). |
 | `LOG_LEVEL` | `INFO` (default: requests and game events) or `WARNING` (only problems). |
 | `METRICS_TOKEN` | Lets a monitoring service read `GET /metrics` (Prometheus format) with `Authorization: Bearer <token>`. Admins can always open it. |
@@ -72,7 +73,7 @@ How it works:
 
 ## The admin area
 
-Sign in with an address listed in `ADMIN_EMAILS`. Your account page then links to **Admin** (`/admin`). Only that setting can make someone an admin; nothing in the database can. To everyone else, every admin page and API answers "not found".
+Sign in with an address listed in `ADMIN_EMAILS`. Your account page then links to **Admin** (`/admin`). Only that setting can make someone an admin; nothing in the database can. To everyone else, every admin page and API answers "not found". Admin access also needs a recent sign-in: it lasts 12 hours from signing in (`ADMIN_SESSION_HOURS`), then asks you to sign in again. So a stolen sign-in cookie, which otherwise lasts 30 days, isn't enough for admin. Your normal sign-in carries on for everything else.
 
 - **Overview:** games running, teams, screens, accounts, sign-ins, errors and recent problems (the last warnings and errors, with request IDs to search the logs for).
 - **Switches:** pause new games (running games carry on), pause new sign-ups (existing accounts still sign in), and a notice shown at the top of the start page, e.g. before a restart. They survive restarts.

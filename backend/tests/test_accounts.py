@@ -83,7 +83,7 @@ def test_signing_in_with_an_emailed_link(app):
         assert mail.to == "sam@example.com" and "/signin/email#t=" in mail.text
         token = app.state.accounts.mailer.last_token()
         r = c.post("/api/auth/email/verify", json={"token": token})
-        assert r.json() == {"user": {"name": "sam", "email": "sam@example.com", "google": False, "admin": False}, "next": "/build"}
+        assert r.json() == {"user": {"name": "sam", "email": "sam@example.com", "google": False, "admin": False, "adminUntil": None}, "next": "/build"}
         session = next(ck for ck in c.cookies.jar if ck.name == "tvs")
         assert session.path == "/" and session.has_nonstandard_attr("HttpOnly")
         assert c.get("/api/me").json()["user"]["email"] == "sam@example.com"
@@ -260,7 +260,7 @@ def test_signing_in_with_google(make):
         app.state.accounts.google.claims = good_claims(q)
         r = c.get(f"/api/auth/google/callback?state={q['state']}&code=good-code", follow_redirects=False)
         assert r.status_code == 302 and r.headers["location"] == "/build"
-        assert c.get("/api/me").json()["user"] == {"name": "Sam Smith", "email": "sam@example.com", "google": True, "admin": False}
+        assert c.get("/api/me").json()["user"] == {"name": "Sam Smith", "email": "sam@example.com", "google": True, "admin": False, "adminUntil": None}
 
 
 def test_google_and_email_sign_in_reach_the_same_account(make):

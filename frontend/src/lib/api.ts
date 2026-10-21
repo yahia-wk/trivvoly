@@ -37,7 +37,7 @@ export const checkQuiz = (quiz: unknown) => post<{ ok: boolean; problems: string
 
 /* ---------- Accounts ---------- */
 
-export interface User { name: string; email: string; google: boolean; admin: boolean }
+export interface User { name: string; email: string; google: boolean; admin: boolean; adminUntil: number | null }
 export interface SavedQuiz { id: string; title: string; ok: boolean; rounds: number; questions: number; updatedAt: number }
 
 export const siteInfo = () => call<{ notice: string; newGamesPaused: boolean }>('/api/site');

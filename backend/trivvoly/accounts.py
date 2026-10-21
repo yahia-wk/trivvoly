@@ -99,8 +99,17 @@ class Accounts:
     def is_admin(self, user: UserRow | None) -> bool:
         return user is not None and user.email in self.config.admin_emails
 
+    def admin_until(self, user: UserRow) -> float:
+        """Admin access lasts a few hours from signing in, however long the session itself lasts."""
+        return getattr(user, "session_started", 0.0) + self.config.admin_session_hours * 3600
+
+    def is_fresh_admin(self, user: UserRow | None) -> bool:
+        return self.is_admin(user) and time.time() < self.admin_until(user)  # type: ignore[arg-type]
+
     def public(self, user: UserRow) -> dict[str, Any]:
-        return {"name": user.name, "email": user.email, "google": user.google_sub is not None, "admin": self.is_admin(user)}
+        admin = self.is_admin(user)
+        return {"name": user.name, "email": user.email, "google": user.google_sub is not None, "admin": admin,
+                "adminUntil": self.admin_until(user) if admin else None}
 
     def _user_for_token(self, token: str) -> UserRow | None:
         with self._db() as db:
@@ -108,7 +117,10 @@ class Accounts:
             if row is None or row.expires_at < time.time():
                 return None
             user = db.get(UserRow, row.user_id)
-            return None if user is None or db.get(BanRow, user.email) is not None else user
+            if user is None or db.get(BanRow, user.email) is not None:
+                return None
+            user.session_started = row.created_at  # type: ignore[attr-defined]  (not stored: when this sign-in began)
+            return user
 
     def is_banned(self, email: str) -> bool:
         with self._db() as db:
@@ -158,6 +170,7 @@ class Accounts:
             token = secrets.token_urlsafe(32)
             db.add(SessionRow(token_hash=_hash(token), user_id=user.id, created_at=t, expires_at=t + self.config.session_days * 86400))
             db.commit()
+            user.session_started = t  # type: ignore[attr-defined]
             return user, token, new
 
     def _session_cookie(self, res: Response, request: Request, token: str) -> None:

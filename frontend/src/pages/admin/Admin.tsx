@@ -15,11 +15,27 @@ const ago = (t: number) => {
 const date = (t: number) => new Date(t * 1000).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const uptime = (s: number) => s < 3600 ? `${Math.round(s / 60)} min` : s < 172800 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} days`;
 
-/** Re-run `load` every few seconds while the tab is visible. */
+const SIGN_IN_AGAIN = '/signin?next=/admin&again=1';
+
+/** Admin access lasts a few hours from signing in; after that, the server asks for a fresh sign-in. */
+function SignInAgain() {
+  return (
+    <section className="card plain">
+      <h2>Please sign in again</h2>
+      <p className="muted">For safety, the admin area only works for a few hours after you sign in. Your other sign-in carries on as normal.</p>
+      <Link className="btn primary block" to={SIGN_IN_AGAIN}>Sign in again</Link>
+    </section>
+  );
+}
+
+/** Re-run `load` every few seconds while the tab is visible. An expired admin sign-in shows "sign in again". */
 function usePoll<T>(load: () => Promise<T>, ms: number): [T | null, string, () => void] {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState('');
-  const refresh = useCallback(() => { load().then(d => { setData(d); setError(''); }).catch((e: Error) => setError(e.message)); }, [load]);
+  const refresh = useCallback(() => {
+    load().then(d => { setData(d); setError(''); })
+      .catch((e: Error & { status?: number }) => { if (e.status === 401) setData(null); setError(e.status === 401 ? 'reauth' : e.message); });
+  }, [load]);
   useEffect(() => {
     refresh();
     const t = window.setInterval(() => { if (!document.hidden) refresh(); }, ms);
@@ -40,13 +56,16 @@ export default function Admin() {
       </div></div>
     );
   }
+  const expired = (me.adminUntil ?? 0) * 1000 < Date.now();
+  const until = new Date((me.adminUntil ?? 0) * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   return (
     <div className="page-landing page-account page-admin">
       <div className="wrap">
         <header className="mini-head">
           <Link to="/" className="home">Trivvoly</Link>
-          <span className="who">Admin · {me.email}</span>
+          <span className="who">Admin · {me.email}{!expired && <span className="until"> · until {until}</span>}</span>
         </header>
+        {expired ? <SignInAgain /> : <>
         <nav className="tabs" aria-label="Admin sections">
           {(['overview', 'games', 'accounts', 'log'] as Tab[]).map(t => (
             <button key={t} type="button" className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
@@ -58,6 +77,7 @@ export default function Admin() {
         {tab === 'games' && <GamesTab />}
         {tab === 'accounts' && <AccountsTab />}
         {tab === 'log' && <LogTab />}
+        </>}
       </div>
     </div>
   );
@@ -69,6 +89,7 @@ function Stat({ label, value, sub, bad }: { label: string; value: number | strin
 
 function OverviewTab() {
   const [o, error, refresh] = usePoll(A.overview, 5000);
+  if (error === 'reauth') return <SignInAgain />;
   if (!o) return <p className="muted">{error || 'Loading…'}</p>;
   return (
     <>
@@ -143,6 +164,7 @@ function GamesTab() {
     setBusy(key);
     fn().catch((e: Error) => window.alert(e.message)).finally(() => { setBusy(''); refresh(); });
   };
+  if (error === 'reauth') return <SignInAgain />;
   if (!data) return <p className="muted">{error || 'Loading…'}</p>;
   if (!data.rooms.length) return <section className="card plain"><p className="muted">No games running right now.</p></section>;
   return (
@@ -181,13 +203,14 @@ function AccountsTab() {
   const [open, setOpen] = useState<string | null>(null);
   const [quizzes, setQuizzes] = useState<A.AdminQuiz[]>([]);
   const [error, setError] = useState('');
-  const search = useCallback((query: string) => A.users(query).then(d => setList(d.users)).catch((e: Error) => setError(e.message)), []);
+  const search = useCallback((query: string) => A.users(query).then(d => setList(d.users)).catch((e: Error & { status?: number }) => setError(e.status === 401 ? 'reauth' : e.message)), []);
   useEffect(() => { search(''); }, [search]);
   const show = (id: string) => { setOpen(open === id ? null : id); setQuizzes([]); if (open !== id) A.userQuizzes(id).then(d => setQuizzes(d.quizzes)).catch(() => {}); };
   const act = (ask: string | null, fn: () => Promise<unknown>) => {
     if (ask && !window.confirm(ask)) return;
     fn().then(() => search(q)).catch((e: Error) => setError(e.message));
   };
+  if (error === 'reauth') return <SignInAgain />;
   return (
     <section className="card plain">
       <form className="inline" onSubmit={(e: FormEvent) => { e.preventDefault(); search(q); }}>
@@ -232,6 +255,7 @@ function AccountsTab() {
 
 function LogTab() {
   const [data, error] = usePoll(A.adminLog, 15000);
+  if (error === 'reauth') return <SignInAgain />;
   if (!data) return <p className="muted">{error || 'Loading…'}</p>;
   return (
     <section className="card plain">

@@ -13,6 +13,7 @@ export default function SignIn() {
   const [params] = useSearchParams();
   const next = NEXT.test(params.get('next') || '') ? params.get('next')! : '/account';
   const me = useMe();
+  const again = params.has('again'); // asked to sign in again (e.g. for the admin area) while signed in
   const [options, setOptions] = useState<{ google: boolean; email: boolean } | null>(null);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState('');
@@ -39,7 +40,7 @@ export default function SignIn() {
         <header className="mini-head"><Link to="/" className="home">Trivvoly</Link></header>
         <section className="card plain" aria-labelledby="signin-h">
           <h2 id="signin-h">Sign in</h2>
-          {me ? (
+          {me && !again ? (
             <>
               <p>You’re signed in as <b>{me.name}</b> ({me.email}).</p>
               <Link className="btn primary block" to={next}>Carry on</Link>
@@ -52,7 +53,7 @@ export default function SignIn() {
             </div>
           ) : (
             <>
-              <p className="muted">Sign in to keep your quizzes in your account and use them from any computer. You don’t need an account to play or host.</p>
+              <p className="muted">{again ? 'For safety, please sign in again to carry on.' : 'Sign in to keep your quizzes in your account and use them from any computer. You don’t need an account to play or host.'}</p>
               {options === null && !error && <p className="muted">Loading…</p>}
               {options?.google && <a className="btn block google" href={googleSignInUrl(next)}><span aria-hidden="true" className="g">G</span>Continue with Google</a>}
               {options?.google && options.email && <div className="or"><span>or</span></div>}
