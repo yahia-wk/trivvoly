@@ -9,7 +9,10 @@ services:
 
   caddy:
     image: caddy:2.11.7-alpine
-    ports: ["80:80", "443:443", "443:443/udp"]
+    # On the server's own network, not Docker's: Docker relays IPv6 connections itself, which would
+    # hide every IPv6 visitor's address (most phones on mobile data) behind one internal address.
+    # This way Caddy sees real addresses, and the firewall (ufw) controls ports 80 and 443 directly.
+    network_mode: host
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (Let's Encrypt writes here if a certificate has trouble)}
@@ -40,8 +43,8 @@ services:
           sleep 86400
         done
     depends_on:
-      db:
-        condition: service_healthy
+      app:
+        condition: service_healthy  # so the first backup has the tables in it
     restart: unless-stopped
     logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
 

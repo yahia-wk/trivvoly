@@ -2,6 +2,9 @@
 # redirects http:// to https://, and passes everything (WebSockets too) to the app.
 {
 	email {$ACME_EMAIL}
+	# Caddy runs on the server's own network (to see visitors' real IPv4 and IPv6 addresses), so its
+	# admin API would be open to everything on the server: it isn't needed, so it's off
+	admin off
 }
 
 {$DOMAIN} {
@@ -12,8 +15,9 @@
 		-Server
 	}
 	# Caddy sets X-Forwarded-For to the visitor's real address and X-Forwarded-Proto to https,
-	# replacing whatever the visitor sent; the app (TRUST_PROXY=1) reads the last entry
-	reverse_proxy app:3000
+	# replacing whatever the visitor sent; the app (TRUST_PROXY=1) reads the last entry.
+	# The app listens on 127.0.0.1:3000, reachable from this server only.
+	reverse_proxy {$UPSTREAM:127.0.0.1:3000}
 	# No access log here on purpose: it would record full URLs with their query strings (such as
 	# Google's one-time sign-in code). The app logs every request itself, without them.
 }
