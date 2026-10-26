@@ -65,6 +65,21 @@ Admins (the addresses in `ADMIN_EMAILS`) get an admin area at `/admin`: live gam
 
 **[docs/DEPLOY.md](docs/DEPLOY.md)** goes step by step from nothing to a live site on a small Hetzner server: HTTPS (Caddy), Postgres, nightly backups, a firewall and automatic security updates, set up by [`deploy/setup-server.sh`](deploy/setup-server.sh) and updated with [`deploy/deploy.sh`](deploy/deploy.sh). [docs/HOSTING.md](docs/HOSTING.md) has every setting.
 
+## Changes, checks and releases
+
+Every change goes through a pull request on GitHub. The **Checks** must pass before it can be merged:
+- backend tests on SQLite and Postgres
+- frontend type-check, tests and build
+- a Docker build
+
+Merging to main runs the **Release**:
+- the checks again
+- one Docker image for that commit, scanned for vulnerabilities and published
+- deploy to **staging**
+- **production**, after the maintainer approves
+
+Every day, **Security** audits the npm and Python packages and the published image, and **CodeQL** scans the code. **Dependabot** proposes updates, each at least 14 days old. All of it is in [`.github/`](.github/); the server side is [docs/DEPLOY.md](docs/DEPLOY.md). To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 ## Safety
 
 Built for strangers on the internet: quizzes are validated data and every piece of text is escaped; quizmaster secrets travel in the link's `#` part and become HttpOnly cookies scoped to one room, and are stored only as hashes (team logins too); every WebSocket's origin is checked; pages send a strict Content-Security-Policy; requests and messages are size- and rate-limited; team names and dispute reasons are filtered for offensive words; rooms (with all their data) expire after a few hours or when the quizmaster ends the game. Accounts: sign-in sessions and emailed links are random tokens stored only as hashes; links work once for 15 minutes; Google sign-in runs on the server with PKCE, state and nonce checks; every account can be deleted with everything in it. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/HOSTING.md](docs/HOSTING.md).

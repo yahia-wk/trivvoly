@@ -50,31 +50,44 @@ sha="${sha:-$(git rev-parse origin/main)}"
 sha=$(git rev-parse --verify --quiet "${sha}^{commit}") || { echo "Unknown commit: ${2:-}"; exit 1; }
 # Only commits that made it into main (GitHub can serve other commits, e.g. from forks, by ID)
 git merge-base --is-ancestor "$sha" origin/main || { echo "Refused: $sha isn't on main."; exit 1; }
-git -c advice.detachedHead=false checkout --quiet --detach "$sha"   # compose files and Caddyfile of that version
 echo "    $site → $sha"
-
-echo "==> Getting its image"
-export TRIVVOLY_TAG="sha-$sha"
+previous=$(tail -n 1 "deploys/$site.log" 2>/dev/null | cut -d' ' -f1 || true)   # last version that worked here
+checked_out=$(git rev-parse HEAD)
 mkdir -p "backups/$site" deploys
-site_compose "$site" pull --quiet app
+
+# The image first: if it can't be had, nothing on the server has changed
+echo "==> Getting its image"
+image="ghcr.io/yahia-wk/trivvoly:sha-$sha"
+docker image inspect "$image" >/dev/null 2>&1 || docker pull --quiet "$image" >/dev/null   || { echo "No image for $sha. Did its release finish? (Actions → Release)"; exit 1; }
+
+# Start a version: its compose files and Caddyfile, then its containers
+start() {
+  git -c advice.detachedHead=false checkout --quiet --detach "$1"
+  TRIVVOLY_TAG="sha-$1" site_compose "$site" up -d --remove-orphans
+}
+healthy() {
+  for _ in $(seq 1 60); do
+    TRIVVOLY_TAG=unused site_compose "$site" exec -T app python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/healthz')" 2>/dev/null && return 0
+    sleep 2
+  done
+  return 1
+}
 
 echo "==> Starting it"
-site_compose "$site" up -d --remove-orphans
-
-echo "==> Waiting for it to answer"
-healthy=""
-for _ in $(seq 1 60); do
-  if site_compose "$site" exec -T app python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/healthz')" 2>/dev/null; then
-    healthy=yes; break
+if start "$sha" && healthy; then
+  echo "$sha $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "deploys/$site.log"
+else
+  echo "The new version didn't start. Its last log lines:"
+  TRIVVOLY_TAG=unused site_compose "$site" logs --tail 60 app || true
+  # A broken version never stays live: put the last working one back
+  if [[ -n "$previous" && "$previous" != "$sha" ]]; then
+    echo "==> Putting back $previous"
+    if start "$previous" && healthy; then echo "    $site is back on $previous."; else echo "    That didn't start either: look at the logs."; fi
+  else
+    git -c advice.detachedHead=false checkout --quiet --detach "$checked_out"
   fi
-  sleep 2
-done
-if [[ -z "$healthy" ]]; then
-  echo "It didn't start. The last log lines:"
-  site_compose "$site" logs --tail 60 app
   exit 1
 fi
-echo "$sha $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "deploys/$site.log"
 
 echo "==> HTTPS (Caddy)"
 caddy_version=$(cat deploy/Caddyfile deploy/caddy.yml env/caddy.env | sha256sum | cut -c1-16)
