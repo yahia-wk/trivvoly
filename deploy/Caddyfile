@@ -1,5 +1,5 @@
-# Caddy: HTTPS for Trivvoly. It gets and renews the certificate by itself (Let's Encrypt),
-# redirects http:// to https://, and passes everything (WebSockets too) to the app.
+# Caddy: HTTPS for Trivvoly. It gets and renews certificates by itself (Let's Encrypt), redirects
+# http:// to https://, and passes everything (WebSockets too) to the app.
 {
 	email {$ACME_EMAIL}
 	# Caddy runs on the server's own network (to see visitors' real IPv4 and IPv6 addresses), so its
@@ -7,21 +7,37 @@
 	admin off
 }
 
-{$DOMAIN} {
+(trivvoly) {
 	encode zstd gzip
 	header {
 		# Browsers remember to use HTTPS only, for a year
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
-	# Caddy sets X-Forwarded-For to the visitor's real address and X-Forwarded-Proto to https,
-	# replacing whatever the visitor sent; the app (TRUST_PROXY=1) reads the last entry.
-	# The app listens on 127.0.0.1:3000, reachable from this server only.
-	reverse_proxy {$UPSTREAM:127.0.0.1:3000}
 	# No access log here on purpose: it would record full URLs with their query strings (such as
 	# Google's one-time sign-in code). The app logs every request itself, without them.
 }
 
+# Production. Caddy sets X-Forwarded-For to the visitor's real address and X-Forwarded-Proto to
+# https, replacing whatever the visitor sent; the app (TRUST_PROXY=1) reads the last entry.
+# Each site's app listens on 127.0.0.1 only, reachable from this server alone.
+{$DOMAIN} {
+	import trivvoly
+	reverse_proxy 127.0.0.1:3000
+}
+
 www.{$DOMAIN} {
 	redir https://{$DOMAIN}{uri} permanent
+}
+
+# Staging: the next version, for you to try before it goes live. Behind a password, and kept out
+# of search engines. The release pipeline checks /healthz and /api/version without the password.
+{$STAGING_DOMAIN} {
+	import trivvoly
+	header X-Robots-Tag "noindex, nofollow"
+	@private not path /healthz /api/version
+	basic_auth @private {
+		{$STAGING_USER} {$STAGING_PASSWORD_HASH}
+	}
+	reverse_proxy 127.0.0.1:3001
 }

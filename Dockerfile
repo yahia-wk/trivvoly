@@ -13,11 +13,15 @@ RUN npm run build
 
 # 2. Run the game server
 FROM python:3.12-slim
+# Links the published image to its source code on GitHub
+LABEL org.opencontainers.image.source=https://github.com/yahia-wk/trivvoly
+ARG TRIVVOLY_VERSION=dev
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TRUST_PROXY=1 \
     LOG_FORMAT=json \
+    TRIVVOLY_VERSION=${TRIVVOLY_VERSION} \
     DATABASE_URL=sqlite:////data/trivvoly.db
 COPY backend/ backend/
 # Editable install: the server finds quizzes/, shared/ and frontend/dist/ next to backend/

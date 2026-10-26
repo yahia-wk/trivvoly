@@ -95,7 +95,7 @@ function OverviewTab() {
     <>
       <div className="stats">
         <Stat label="games running" value={o.games.live} sub={`of ${o.games.max} max · ${o.games.teams} teams · ${o.games.screens} screens`} />
-        <Stat label="games since restart" value={o.games.startedSinceBoot} sub={`up ${uptime(o.uptimeSeconds)}`} />
+        <Stat label="games since restart" value={o.games.startedSinceBoot} sub={`up ${uptime(o.uptimeSeconds)} · version ${o.version.slice(0, 7)}`} />
         <Stat label="accounts" value={o.accounts.users} sub={`${o.accounts.newUsers7d} new, ${o.accounts.activeUsers7d} active this week`} />
         <Stat label="saved quizzes" value={o.accounts.savedQuizzes} sub={`${o.accounts.banned} banned addresses`} />
         <Stat label="sign-ins since restart" value={o.signInsSinceBoot.ok} sub={`${o.signInsSinceBoot.failed} failed`} />

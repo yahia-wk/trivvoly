@@ -16,6 +16,8 @@ def _int(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class Config:
     port: int = field(default_factory=lambda: _int("PORT", 3000))
+    # The commit this was built from (set in the Docker image by the release pipeline)
+    version: str = field(default_factory=lambda: os.environ.get("TRIVVOLY_VERSION", "dev"))
     public_url: str = field(default_factory=lambda: os.environ.get("PUBLIC_URL", "").rstrip("/"))
     trust_proxy: bool = field(default_factory=lambda: os.environ.get("TRUST_PROXY") == "1")
     database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'trivvoly.db'}"))

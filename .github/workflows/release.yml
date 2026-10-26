@@ -1,0 +1,80 @@
+# Every change merged into main:
+#   checks → one Docker image (tagged with the commit), scanned → staging → (your approval) → production
+# The image that goes to production is exactly the one you tried on staging.
+# Deploys only run once the repository variable DEPLOY_ENABLED is "true" (see docs/DEPLOY.md).
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  image:
+    name: Build, scan and publish the image
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write   # publish to ghcr.io/yahia-wk/trivvoly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: trivvoly:candidate
+          build-args: TRIVVOLY_VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Scan for known vulnerabilities (fails on fixable high or critical ones)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa \
+            image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --no-progress trivvoly:candidate
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/yahia-wk/trivvoly:sha-${{ github.sha }}
+            ghcr.io/yahia-wk/trivvoly:main
+          build-args: TRIVVOLY_VERSION=${{ github.sha }}
+          cache-from: type=gha
+
+  staging:
+    needs: image
+    if: vars.DEPLOY_ENABLED == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      sha: ${{ github.sha }}
+    secrets: inherit
+
+  production:
+    needs: staging
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production   # waits here for your approval (the "production" environment's rule)
+      sha: ${{ github.sha }}
+    secrets: inherit

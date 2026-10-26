@@ -27,3 +27,7 @@ backups/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Server settings and deploy records (deploy/setup-server.sh)
+env/
+deploys/

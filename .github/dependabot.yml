@@ -1,0 +1,50 @@
+# Dependabot opens pull requests to update dependencies. Version updates wait until a release is
+# at least 14 days old (a new release that turns out to be broken or malicious is usually pulled
+# by then); security fixes come straight away. Each pull request runs the checks like any other.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    groups:
+      frontend:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    groups:
+      backend:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Base images in the Dockerfile, and Postgres/Caddy in the compose files. Major versions are left
+  # to you: a new Postgres major version needs its data migrated, never just a new tag.
+  - package-ecosystem: docker
+    directories: ["/"]
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker-compose
+    directories: ["/", "/deploy"]
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]

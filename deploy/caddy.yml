@@ -1,0 +1,25 @@
+# Caddy: HTTPS for both sites (production and staging), shared. deploy/deploy.sh starts it as
+#   docker compose -p trivvoly-caddy --env-file env/caddy.env -f deploy/caddy.yml up -d
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    # On the server's own network, not Docker's: Docker relays IPv6 connections itself, which would
+    # hide every IPv6 visitor's address (most phones on mobile data) behind one internal address.
+    # This way Caddy sees real addresses, and the firewall (ufw) controls ports 80 and 443 directly.
+    network_mode: host
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in env/caddy.env}
+      STAGING_DOMAIN: ${STAGING_DOMAIN:?Set STAGING_DOMAIN in env/caddy.env}
+      STAGING_USER: ${STAGING_USER:?Set STAGING_USER in env/caddy.env}
+      STAGING_PASSWORD_HASH: ${STAGING_PASSWORD_HASH:?Set STAGING_PASSWORD_HASH in env/caddy.env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in env/caddy.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates: keep them, or Let's Encrypt limits kick in
+      - caddy_config:/config
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+volumes:
+  caddy_data:
+  caddy_config:

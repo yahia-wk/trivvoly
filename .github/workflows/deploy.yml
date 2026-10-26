@@ -1,0 +1,83 @@
+# Deploy one version to staging or production. Called by the release for each change, and can be
+# run by hand (Actions → Deploy → Run workflow) to redeploy or roll back to any earlier commit on main.
+#
+# GitHub reaches the server with a deploy key that can only deploy to its own environment there
+# (see deploy/remote-deploy.sh): each environment holds its own key as an environment secret, so
+# only jobs for that environment (and, for production, only after your approval) can use it.
+# The server pulls the image built for that commit.
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment: { type: string, required: true }
+      sha: { type: string, required: true }
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to
+        type: choice
+        options: [staging, production]
+        required: true
+      sha:
+        description: Full commit ID to deploy (a commit on main whose release built an image)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.site.outputs.url }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - name: Check the request
+        id: site
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SHA: ${{ inputs.sha }}
+          DOMAIN: ${{ vars.DOMAIN }}
+        run: |
+          [[ "$ENVIRONMENT" == staging || "$ENVIRONMENT" == production ]] || { echo "::error::Unknown environment"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Give the full 40-character commit ID"; exit 1; }
+          [[ -n "$DOMAIN" ]] || { echo "::error::Set the repository variable DOMAIN (e.g. trivvoly.com)"; exit 1; }
+          if [[ "$ENVIRONMENT" == staging ]]; then echo "url=https://staging.$DOMAIN" >> "$GITHUB_OUTPUT"; else echo "url=https://$DOMAIN" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Deploy on the server
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}         # environment secret: one key per environment
+          KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}    # the server's public key (not a secret)
+          HOST: ${{ vars.DEPLOY_HOST }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          [[ -n "$SSH_KEY" && -n "$KNOWN_HOSTS" && -n "$HOST" ]] || { echo "::error::Set DEPLOY_SSH_KEY (environment secret), DEPLOY_HOST and DEPLOY_KNOWN_HOSTS (variables)"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts   # the server's real key: no trust-on-first-use
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "root@$HOST" "deploy $ENVIRONMENT $SHA"
+
+      - name: Check the new version is live
+        env:
+          URL: ${{ steps.site.outputs.url }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          for _ in $(seq 1 30); do
+            live=$(curl -fsS --max-time 10 "$URL/api/version" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' 2>/dev/null || true)
+            if [[ "$live" == "$SHA" ]]; then echo "$URL is running $SHA"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::$URL isn't running $SHA (it says: ${live:-no answer})"; exit 1
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

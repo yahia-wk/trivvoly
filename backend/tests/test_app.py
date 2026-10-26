@@ -70,6 +70,11 @@ def test_pages_have_a_strict_security_policy(client):
     assert client.get("/assets/app.js").status_code == 200
 
 
+def test_it_says_which_version_is_running(make):
+    with TestClient(make(version="0123abc")) as c:
+        assert c.get("/api/version").json() == {"version": "0123abc"}
+
+
 def test_creating_a_room_gives_a_room_only_httponly_cookie(client):
     room = new_room(client)
     assert len(room["code"]) == 6

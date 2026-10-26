@@ -97,7 +97,7 @@ def admin_routes(app: FastAPI, config: Config, accounts: Accounts, rooms: RoomSt
                 }
         live = list(rooms.rooms.values())
         return {
-            "now": t, "uptimeSeconds": round(t - STARTED),
+            "now": t, "uptimeSeconds": round(t - STARTED), "version": config.version,
             "games": {"live": len(live), "max": config.max_rooms,
                       "teams": sum(len(r.game.st.teams) for r in live),
                       "screens": sum(len(r.connections) for r in live),

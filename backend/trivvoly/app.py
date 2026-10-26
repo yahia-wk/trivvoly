@@ -189,6 +189,11 @@ def create_app(config: Config | None = None, *, reset: bool = False, extra_quizz
     async def healthz() -> Response:
         return Response("ok", media_type="text/plain")
 
+    @app.get("/api/version")
+    async def version() -> dict:
+        """Which commit is running: the release pipeline checks it after each deploy."""
+        return {"version": config.version}
+
     @app.get("/api/site")
     async def site() -> dict:
         """For the start page: a notice from the admins, and whether new games are paused."""

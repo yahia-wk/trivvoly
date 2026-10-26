@@ -1,38 +1,26 @@
-# Online: HTTPS in front of the app, and nightly database backups. Used with the main file:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# (deploy/deploy.sh does this). Needs DOMAIN and ACME_EMAIL in .env. See docs/DEPLOY.md.
+# One Trivvoly site on the server (production or staging): the app from the image the release
+# pipeline published, its own database, and nightly backups. deploy/deploy.sh runs it as
+#   docker compose -p trivvoly-<site> --env-file env/common.env --env-file env/<site>.env \
+#     -f docker-compose.yml -f docker-compose.prod.yml up -d
+# HTTPS for both sites is one shared Caddy (deploy/caddy.yml). See docs/DEPLOY.md.
 services:
   app:
+    # Exactly the image built and scanned for this commit; nothing is built on the server
+    image: ghcr.io/yahia-wk/trivvoly:${TRIVVOLY_TAG:?deploy.sh sets TRIVVOLY_TAG}
+    build: !reset null
     environment:
-      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN in .env}
+      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN in env/<site>.env}
       TRUST_PROXY: "1"
 
-  caddy:
-    image: caddy:2.11.7-alpine
-    # On the server's own network, not Docker's: Docker relays IPv6 connections itself, which would
-    # hide every IPv6 visitor's address (most phones on mobile data) behind one internal address.
-    # This way Caddy sees real addresses, and the firewall (ufw) controls ports 80 and 443 directly.
-    network_mode: host
-    environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (Let's Encrypt writes here if a certificate has trouble)}
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data        # certificates: keep them, or Let's Encrypt limits kick in
-      - caddy_config:/config
-    depends_on: [app]
-    restart: unless-stopped
-    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
-
   backup:
-    # Once a day: a compressed copy of the database in ./backups, keeping the last 14
+    # Once a day: a compressed copy of this site's database, keeping the last 14
     image: postgres:17-alpine
     environment:
       PGHOST: db
       PGUSER: trivvoly
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in env/<site>.env}
       PGDATABASE: trivvoly
-    volumes: ["./backups:/backups"]
+    volumes: ["${BACKUP_DIR:?Set BACKUP_DIR in env/<site>.env}:/backups"]
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -47,7 +35,3 @@ services:
         condition: service_healthy  # so the first backup has the tables in it
     restart: unless-stopped
     logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
-
-volumes:
-  caddy_data:
-  caddy_config:

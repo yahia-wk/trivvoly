@@ -13,7 +13,7 @@ const send = <T>(method: string, path: string, data: unknown = {}) => call<T>(pa
 export interface Switches { pauseNewGames: boolean; pauseSignUps: boolean; notice: string }
 export interface Problem { time: number; level: string; msg: string; event: string | null; requestId: string | null; error: string | null }
 export interface Overview {
-  now: number; uptimeSeconds: number;
+  now: number; uptimeSeconds: number; version: string;
   games: { live: number; max: number; teams: number; screens: number; startedSinceBoot: number };
   accounts: { users: number; newUsers7d: number; activeUsers7d: number; savedQuizzes: number; banned: number };
   signInsSinceBoot: { ok: number; failed: number };
