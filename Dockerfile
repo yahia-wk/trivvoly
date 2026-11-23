@@ -12,7 +12,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # 2. Run the game server
-FROM python:3.12-slim
+FROM python:3.15-slim
 # Links the published image to its source code on GitHub
 LABEL org.opencontainers.image.source=https://github.com/yahia-wk/trivvoly
 ARG TRIVVOLY_VERSION=dev
